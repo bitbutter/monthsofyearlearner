@@ -520,6 +520,147 @@ test("graduation test mode seeds an isolated eligible profile", (t) => {
   }
 });
 
+test("graduation button appears only after the earliest spaced perfect session", (t) => {
+  const browser = findChrome();
+  if (!browser) {
+    t.skip("Chrome or Edge is not installed in a known location");
+    return;
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "months-learner-graduation-button-timing-"));
+  const coreUrl = pathToFileURL(path.join(root, "core.js")).href;
+  const appUrl = pathToFileURL(path.join(root, "app.js")).href;
+  const styleUrl = pathToFileURL(path.join(root, "styles.css")).href;
+  const milestones = [
+    { name: "day0", now: "2026-05-18T08:06:00.000Z", sessions: 1, expectButton: false },
+    { name: "day1", now: "2026-05-19T08:06:00.000Z", sessions: 2, expectButton: false },
+    { name: "day4", now: "2026-05-22T08:06:00.000Z", sessions: 3, expectButton: false },
+    { name: "day7", now: "2026-05-25T08:06:00.000Z", sessions: 4, expectButton: true },
+  ];
+  const sessionStarts = [
+    "2026-05-18T08:00:00.000Z",
+    "2026-05-19T08:00:00.000Z",
+    "2026-05-22T08:00:00.000Z",
+    "2026-05-25T08:00:00.000Z",
+  ];
+
+  try {
+    for (const milestone of milestones) {
+      const harnessPath = path.join(tempDir, `${milestone.name}.html`);
+      const userDataDir = path.join(tempDir, `profile-${milestone.name}`);
+      fs.writeFileSync(
+        harnessPath,
+        `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="${styleUrl}" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      const RealDate = Date;
+      const fakeNowMs = new RealDate("${milestone.now}").getTime();
+      class FakeDate extends RealDate {
+        constructor(...args) {
+          super(...(args.length ? args : [fakeNowMs]));
+        }
+        static now() {
+          return fakeNowMs;
+        }
+        static parse(value) {
+          return RealDate.parse(value);
+        }
+        static UTC(...args) {
+          return RealDate.UTC(...args);
+        }
+      }
+      window.Date = FakeDate;
+      window.addEventListener("error", (event) => {
+        document.body.setAttribute("data-test-status", "FAIL " + event.message);
+      });
+    </script>
+    <script src="${coreUrl}"></script>
+    <script>
+      const definitions = MonthsLearnerCore.makeCardDefinitions();
+      const allCardIds = Object.keys(definitions);
+      const sessionStarts = ${JSON.stringify(sessionStarts)};
+      const timing = () => ({ responseMs: 1000, timeToFirstInputMs: 100, typingDurationMs: 900 });
+      const completePerfectSession = (inputState, startedAtIso, cardIds) => {
+        let nextState = inputState;
+        const startedAt = new RealDate(startedAtIso);
+        const draft = MonthsLearnerCore.createSessionDraft(nextState, { now: startedAt });
+        cardIds.forEach((cardId) => {
+          const applied = MonthsLearnerCore.applyReview(
+            nextState,
+            cardId,
+            MonthsLearnerCore.expectedAnswer(definitions[cardId]),
+            "Sure",
+            timing(),
+            { now: startedAt },
+          );
+          nextState = applied.state;
+          draft.answerEvents.push(applied.event);
+        });
+        return MonthsLearnerCore.completeSession(nextState, draft, new RealDate(startedAt.getTime() + 5 * 60 * 1000));
+      };
+
+      localStorage.removeItem(MonthsLearnerCore.STORAGE_KEY);
+      let state = MonthsLearnerCore.createInitialState(new RealDate(sessionStarts[0]));
+      for (let index = 0; index < ${milestone.sessions}; index += 1) {
+        const cardIds = index < 3 ? allCardIds : ["number_to_name:1"];
+        state = completePerfectSession(state, sessionStarts[index], cardIds);
+      }
+      localStorage.setItem(MonthsLearnerCore.STORAGE_KEY, JSON.stringify(state));
+    </script>
+    <script src="${appUrl}"></script>
+    <script>
+      const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      (async () => {
+        await wait();
+        const button = document.querySelector('[data-action="start-graduation"]');
+        const stored = JSON.parse(localStorage.getItem(MonthsLearnerCore.STORAGE_KEY));
+        const expectedButton = ${milestone.expectButton};
+        assert(Boolean(button) === expectedButton, "${milestone.name} graduation button visibility was wrong");
+        assert(
+          stored.goal.status === (expectedButton ? "eligible_for_check" : "in_progress"),
+          "${milestone.name} graduation status was " + stored.goal.status,
+        );
+        document.body.setAttribute("data-test-status", "PASS");
+      })().catch((error) => {
+        document.body.setAttribute("data-test-status", "FAIL " + error.message);
+      });
+    </script>
+  </body>
+</html>`,
+        "utf8",
+      );
+
+      const output = execFileSync(
+        browser,
+        [
+          "--headless=new",
+          "--disable-gpu",
+          "--no-first-run",
+          "--window-size=1280,720",
+          "--force-device-scale-factor=1",
+          `--user-data-dir=${userDataDir}`,
+          "--virtual-time-budget=3000",
+          "--dump-dom",
+          pathToFileURL(harnessPath).href,
+        ],
+        { encoding: "utf8", timeout: 30000 },
+      );
+      assert.match(output, /data-test-status="PASS"/, milestone.name);
+    }
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("queue exhaustion lands on the same learner-facing summary page", (t) => {
   const browser = findChrome();
   if (!browser) {
