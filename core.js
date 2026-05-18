@@ -1373,17 +1373,23 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
   }
 
   function recentSessionSummaries(state, count = 7) {
-    return state.sessions.slice(-count).map((session) => ({
-      id: session.id,
-      localDate: session.localDate,
-      answers: session.answers,
-      correct: session.correct,
-      accuracy: session.answers ? Math.round((session.correct / session.answers) * 100) : 0,
-      averageResponseMs: session.averageResponseMs || 0,
-      masteryPercent: session.masterySnapshot ? session.masterySnapshot.masteryPercent : 0,
-      isExtraPractice: session.isExtraPractice === true,
-      isInProgress: session.isInProgress === true,
-    }));
+    return state.sessions.slice(-count).map((session) => {
+      const snapshot = session.masterySnapshot || null;
+      const totalCards = snapshot ? Number(snapshot.totalCards || 0) : 0;
+      const newCards = snapshot ? Number(snapshot.newCards || 0) : 0;
+      return {
+        id: session.id,
+        localDate: session.localDate,
+        answers: session.answers,
+        correct: session.correct,
+        accuracy: session.answers ? Math.round((session.correct / session.answers) * 100) : 0,
+        averageResponseMs: session.averageResponseMs || 0,
+        masteryPercent: snapshot ? snapshot.masteryPercent : 0,
+        practicedPercent: totalCards ? Math.round(((totalCards - newCards) / totalCards) * 100) : 0,
+        isExtraPractice: session.isExtraPractice === true,
+        isInProgress: session.isInProgress === true,
+      };
+    });
   }
 
   return {

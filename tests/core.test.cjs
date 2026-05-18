@@ -423,4 +423,8 @@ test("session completion stores per-answer scheduler events and updates baseline
   assert.equal(state.sessions.length, 2);
   assert.equal(state.sessions[1].answerEvents.length, 3);
   assert.equal(typeof state.settings.typingBaselineMsPerChar, "number");
+  assert.deepEqual(
+    Core.recentSessionSummaries(state).map((session) => session.practicedPercent),
+    [6, 12],
+  );
 });

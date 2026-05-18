@@ -255,23 +255,32 @@
     `;
   }
 
-  function trendLine(label = "Last 7 sessions mastery trend") {
+  function trendLine(label = "Last 7 sessions practice and confidence trend") {
     const recent = Core.recentSessionSummaries(state);
     if (recent.length === 0) {
       return '<p class="compact">No mastery trend yet.</p>';
     }
-    const plotted = recent.map((session, index) => {
+    const pointsFor = (field) => recent.map((session, index) => {
       const x = recent.length === 1 ? 50 : Math.round((index / (recent.length - 1)) * 100);
-      const y = Math.round(92 - session.masteryPercent * 0.84);
+      const y = Math.round(92 - session[field] * 0.84);
       return { x, y };
     });
-    const points = plotted.map((point) => `${point.x},${point.y}`).join(" ");
+    const practiced = pointsFor("practicedPercent");
+    const confident = pointsFor("masteryPercent");
+    const practicedPoints = practiced.map((point) => `${point.x},${point.y}`).join(" ");
+    const confidentPoints = confident.map((point) => `${point.x},${point.y}`).join(" ");
     return `
       <div class="trend" aria-label="${escapeHtml(label)}">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
-          <polyline points="${points}" />
-          ${plotted.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3" />`).join("")}
+          <polyline class="trend-practised" points="${practicedPoints}" />
+          <polyline class="trend-confident" points="${confidentPoints}" />
+          ${practiced.map((point) => `<circle class="trend-practised" cx="${point.x}" cy="${point.y}" r="3" />`).join("")}
+          ${confident.map((point) => `<circle class="trend-confident" cx="${point.x}" cy="${point.y}" r="3" />`).join("")}
         </svg>
+        <div class="trend-legend">
+          <span><i class="trend-swatch trend-practised"></i>Practised skills</span>
+          <span><i class="trend-swatch trend-confident"></i>Confident skills</span>
+        </div>
       </div>
     `;
   }
@@ -281,23 +290,14 @@
     if (recent.length === 0) {
       return "";
     }
-    const first = recent[0];
-    const latest = recent[recent.length - 1];
-    const change = latest.masteryPercent - first.masteryPercent;
-    const changeText =
-      change > 0
-        ? `up ${change} ${plural(change, "point", "points")}`
-        : change < 0
-          ? `down ${Math.abs(change)} ${plural(Math.abs(change), "point", "points")}`
-          : "steady";
     return `
       <section class="panel progress-trend-panel" aria-labelledby="trend-heading">
         <div class="panel-heading">
           <h2 id="trend-heading">Progress over time</h2>
           <span class="status-pill">Last ${recent.length} ${plural(recent.length, "session", "sessions")}</span>
         </div>
-        ${trendLine("Mastery over recent sessions")}
-        <p class="compact">Mastery is ${changeText} across the saved sessions shown here.</p>
+        ${trendLine("Practised and confident skills over recent sessions")}
+        <p class="compact">Practised skills move first. Confident skills move after repeated Sure answers.</p>
       </section>
     `;
   }

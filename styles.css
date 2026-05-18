@@ -281,18 +281,61 @@ h3 {
 
 .trend polyline {
   fill: none;
-  stroke: var(--teal);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 4;
   vector-effect: non-scaling-stroke;
 }
 
+.trend polyline.trend-practised {
+  stroke: var(--amber);
+}
+
+.trend polyline.trend-confident {
+  stroke: var(--teal);
+}
+
 .trend circle {
-  fill: var(--teal-dark);
   stroke: white;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
+}
+
+.trend circle.trend-practised {
+  fill: var(--amber);
+}
+
+.trend circle.trend-confident {
+  fill: var(--teal-dark);
+}
+
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.trend-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.trend-swatch.trend-practised {
+  background: var(--amber);
+}
+
+.trend-swatch.trend-confident {
+  background: var(--teal-dark);
 }
 
 .progress-trend-panel {

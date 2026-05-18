@@ -81,6 +81,9 @@ test("queue exhaustion and timer completion share the session summary", () => {
   assert.match(app, /Session complete/);
   assert.match(app, /You completed \$\{sessionCount\} \$\{sessionNoun\}!/);
   assert.match(app, /progress-trend-panel/);
+  assert.match(app, /Practised skills/);
+  assert.match(app, /Confident skills/);
+  assert.match(app, /Confident skills move after repeated Sure answers\./);
   assert.doesNotMatch(app, /No due review is waiting/);
 });
 
