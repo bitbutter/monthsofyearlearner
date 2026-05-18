@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Make Correct ring expand in reduced-motion mode (#6)
+- Add quick graduation exam test entry (#5)
+- Reduce daily session time limit to five minutes (#7)
 - Add clearer prompt instruction text (#3)
 - Rewrite exhausted-session completion screen (#4)
 - Make Correct ring visibly animated (#2)

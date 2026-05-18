@@ -3,7 +3,9 @@
 (function bootMonthsLearnerApp() {
   const Core = window.MonthsLearnerCore;
   const root = document.getElementById("app");
-  const storageKey = Core.STORAGE_KEY;
+  const urlParams = new URLSearchParams(window.location.search);
+  const graduationTestMode = urlParams.has("graduationTest");
+  const storageKey = graduationTestMode ? `${Core.STORAGE_KEY}.graduationTest` : Core.STORAGE_KEY;
 
   let state = null;
   let view = "home";
@@ -65,6 +67,12 @@
       return;
     }
 
+    if (graduationTestMode) {
+      state = createGraduationTestState(new Date());
+      saveState();
+      return;
+    }
+
     const raw = window.localStorage.getItem(storageKey);
     const parsed = Core.parseStoredState(raw);
     if (parsed.status === "missing") {
@@ -80,6 +88,37 @@
     }
     state = Core.recomputeGoalStatus(parsed.state, new Date());
     saveState();
+  }
+
+  function createGraduationTestState(now) {
+    const readyState = Core.createInitialState(now);
+    const dueAt = Core.nextDueAt(now, 30);
+    Object.values(readyState.cards).forEach((card) => {
+      card.dueAt = dueAt;
+      card.intervalDays = 30;
+      card.reps = 4;
+      card.lastResult = "correct";
+      card.lastConfidence = "Sure";
+      card.lastSlowRecall = false;
+      card.lastAnsweredAt = now.toISOString();
+      card.lastResponseMs = 1000;
+      card.lastTimeToFirstInputMs = 200;
+      card.lastTypingDurationMs = 800;
+    });
+
+    let seededState = readyState;
+    [8, 4, 0].forEach((daysAgo) => {
+      const started = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, 8, 0, 0, 0);
+      const draft = Core.createSessionDraft(seededState, { now: started });
+      draft.elapsedSeconds = 60;
+      seededState = Core.completeSession(seededState, draft, new Date(started.getTime() + 60000));
+      const latest = seededState.sessions[seededState.sessions.length - 1];
+      latest.answers = 1;
+      latest.correct = 1;
+      latest.averageResponseMs = 1000;
+    });
+
+    return Core.recomputeGoalStatus(seededState, now);
   }
 
   function saveState() {
@@ -285,7 +324,9 @@
     const achieved = state.goal.status === "achieved";
     const graduatedAt = state.goal.graduatedAt ? `<p class="success-line">Goal achieved on ${formatDate(state.goal.graduatedAt)}.</p>` : "";
     const primaryAction =
-      achieved && snapshot.dueCards === 0
+      graduationTestMode
+        ? '<button class="primary-button" data-action="start-graduation">Take graduation check</button>'
+        : achieved && snapshot.dueCards === 0
         ? '<button class="primary-button" data-action="settings">Review progress</button>'
         : `<button class="primary-button" data-action="start-session">${achieved ? "Start maintenance" : "Start practice"}</button>`;
     return `
@@ -293,21 +334,21 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Months of the Year Learner</p>
-            <h1>${achieved ? "Maintenance review" : "Today's 8 minute practice"}</h1>
+            <h1>${graduationTestMode ? "Graduation test mode" : achieved ? "Maintenance review" : "Today's 5 minute practice"}</h1>
           </div>
           <button class="ghost-button" data-action="settings">Settings</button>
         </header>
         ${monthStrip()}
         <section class="start-band">
           <div>
-            <p class="timer-readout">8:00</p>
+            <p class="timer-readout">5:00</p>
             <p class="compact">${snapshot.dueCards} cards due now. ${snapshot.overdueCards} overdue.</p>
             ${graduatedAt}
           </div>
           <div class="action-row">
             ${primaryAction}
             ${
-              eligibility.eligible
+              eligibility.eligible && !graduationTestMode
                 ? '<button class="secondary-button" data-action="start-graduation">Take graduation check</button>'
                 : ""
             }

@@ -6,6 +6,8 @@ Live app: https://bitbutter.github.io/monthsofyearlearner/
 
 Open `index.html` directly in a browser, or serve the folder with any static file server. Progress is stored in `localStorage` under `monthsOfYearLearner.v1`.
 
+Quick graduation exam test: open `https://bitbutter.github.io/monthsofyearlearner/?graduationTest=1`. This uses `monthsOfYearLearner.v1.graduationTest`, leaving normal learner progress untouched.
+
 ## Tests
 
 ```powershell

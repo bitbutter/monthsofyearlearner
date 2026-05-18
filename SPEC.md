@@ -5,7 +5,7 @@ Status: Draft plan
 
 ## Goal
 
-Create a single-page web app that helps a motivated learner memorize the months of the year in order and convert fluently between month number and month name. The app runs locally in the browser, stores progress in `localStorage`, and guides one focused 8 minute practice session per day.
+Create a single-page web app that helps a motivated learner memorize the months of the year in order and convert fluently between month number and month name. The app runs locally in the browser, stores progress in `localStorage`, and guides one focused 5 minute practice session per day.
 
 ## Assumptions
 
@@ -28,7 +28,7 @@ The drill design should use:
 - Interleaving: number-to-name, name-to-number, and sequence questions are mixed in one session after a short warm-up.
 - Fluency practice: once accuracy is high, the app emphasizes confident recall at a comfortable pace.
 
-The cited evidence supports the principles above. Exact interval lengths, thresholds, section scores, and the 8 minute session length are product heuristics for this small learning domain.
+The cited evidence supports the principles above. Exact interval lengths, thresholds, section scores, and the 5 minute session length are product heuristics for this small learning domain.
 
 Sources checked:
 
@@ -51,7 +51,7 @@ REASON: The learner needs flexible recall, not only one memorized route.
 
 OLD: Fixed repetition count.
 CHANGES_TO: Schedule each prompt by due time, accuracy, confidence, and calibrated slow-recall signals.
-REASON: Easy items should consume less of the 8 minute budget.
+REASON: Easy items should consume less of the 5 minute budget.
 
 OLD: Multiple-choice answers for all prompts.
 CHANGES_TO: Use typed answers for primary drills and reserve choice UI only for an optional early onboarding check.
@@ -126,7 +126,7 @@ CHANGES_TO: A failed check shows section results and routes missed material back
 REASON: The learner needs a clear repair path.
 
 OLD: 15 minute daily session.
-CHANGES_TO: 8 minute daily session, with optional extra practice after the summary.
+CHANGES_TO: 5 minute daily session, with optional extra practice after the summary.
 REASON: A shorter focused session better fits a 12-year-old and the small content set.
 
 OLD: Possible future abbreviation acceptance.
@@ -268,7 +268,7 @@ The app should cap intervals at 60 days for MVP. This app is for mastery of a ti
 
 ## Daily 8 Minute Session
 
-The session should run from a visible timer. It ends when 8 minutes elapse or when all due work is complete and the learner chooses to stop.
+The session should run from a visible timer. It ends when 5 minutes elapse or when all due work is complete and the learner chooses to stop.
 
 Session phases:
 
@@ -278,7 +278,7 @@ Session phases:
 4. Mixed fluency sprint, 2 minutes: random conversion and neighbor prompts with response pace tracking.
 5. Sequence finish, 40 seconds: one sequence or gap-fill challenge.
 
-If all due items are exhausted before 8 minutes, the app switches to fluency maintenance using mastered cards. It does not create artificial new facts.
+If all due items are exhausted before 5 minutes, the app switches to fluency maintenance using mastered cards. It does not create artificial new facts.
 
 ## UX Requirements
 
@@ -341,7 +341,7 @@ Congratulations screen:
 - Shows completion date, graduation-check score, and a compact mastery summary.
 - Shows what the learner can now do: month number to name, month name to number, and full order.
 - Provides two actions: `Continue with maintenance` and `Review progress`.
-- Does not show a new 8 minute session prompt on the same screen.
+- Does not show a new 5 minute session prompt on the same screen.
 
 Accessibility:
 
@@ -478,7 +478,7 @@ Key: `monthsOfYearLearner.v1`
   "version": 1,
   "createdAt": "2026-05-17T00:00:00.000Z",
   "settings": {
-    "dailyMinutes": 8,
+    "dailyMinutes": 5,
     "wrapSequencePrompts": false,
     "typingBaselineMsPerChar": null
   },
@@ -529,9 +529,9 @@ Key: `monthsOfYearLearner.v1`
       "localDate": "2026-05-17",
       "timeZone": "Europe/Amsterdam",
       "startedAt": "2026-05-17T08:00:00.000Z",
-      "endedAt": "2026-05-17T08:15:00.000Z",
-      "plannedSeconds": 900,
-      "elapsedSeconds": 900,
+      "endedAt": "2026-05-17T08:05:00.000Z",
+      "plannedSeconds": 300,
+      "elapsedSeconds": 300,
       "answers": 42,
       "correct": 37,
       "averageResponseMs": 2200,
@@ -621,7 +621,7 @@ Phase 4: Polish and validation
 
 ## Acceptance Criteria
 
-- A learner can complete an 8 minute session without reloading the page.
+- A learner can complete a 5 minute session without reloading the page.
 - Progress survives browser refresh through `localStorage`.
 - A new learner starts with all cards due.
 - Every scored answer records confidence before feedback is shown.
@@ -640,6 +640,7 @@ Phase 4: Polish and validation
 - The graduation check enforces separate pass thresholds for number-to-name, name-to-number, neighbor, and sequence sections.
 - A passed graduation check routes to a dedicated congratulations screen.
 - A failed graduation check routes to a result screen and prioritizes failed material in later review.
+- `?graduationTest=1` opens a separate localStorage-backed test profile that is immediately eligible for the graduation check.
 - Once achieved, the app displays the completion date and switches future work to maintenance.
 - The settings view can clear `monthsOfYearLearner.v1` after confirmation and return to first-run state.
 - The settings view shows diagnostic history stats derived from localStorage.

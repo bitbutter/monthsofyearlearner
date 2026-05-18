@@ -162,7 +162,7 @@ test("browser flow persists an in-progress answer event before session completio
       };
       (async () => {
         await wait();
-        assert(appText().includes("Today's 8 minute practice"), "home screen did not render");
+        assert(appText().includes("Today's 5 minute practice"), "home screen did not render");
         document.querySelector('[data-action="start-session"]').click();
         await wait();
         const input = document.querySelector("#answer-input");
@@ -371,6 +371,7 @@ test("correct toast animation visibly advances in a live browser", async (t) => 
       assert.notEqual(firstShot.result.data, secondShot.result.data, "correct toast pixels did not change between live frames");
       if (first.reducedMotion) {
         assert(first.ringAnimation.includes("correct-ring-reduced"), "reduced-motion ring animation was missing");
+        assert(first.ringTransform !== second.ringTransform, "reduced-motion correct ring did not grow between live frames");
         assert(
           first.ringOpacity !== second.ringOpacity ||
             first.ringBorderColor !== second.ringBorderColor ||
@@ -385,6 +386,89 @@ test("correct toast animation visibly advances in a live browser", async (t) => 
         assert(first.labelAnimation.includes("correct-label-halo"), "correct label halo animation was missing");
       }
     });
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("graduation test mode seeds an isolated eligible profile", (t) => {
+  const browser = findChrome();
+  if (!browser) {
+    t.skip("Chrome or Edge is not installed in a known location");
+    return;
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "months-learner-graduation-test-mode-"));
+  const userDataDir = path.join(tempDir, "profile");
+  const harnessPath = path.join(tempDir, "harness.html");
+  const coreUrl = pathToFileURL(path.join(root, "core.js")).href;
+  const appUrl = pathToFileURL(path.join(root, "app.js")).href;
+  const styleUrl = pathToFileURL(path.join(root, "styles.css")).href;
+
+  fs.writeFileSync(
+    harnessPath,
+    `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="${styleUrl}" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      window.addEventListener("error", (event) => {
+        document.body.setAttribute("data-test-status", "FAIL " + event.message);
+      });
+    </script>
+    <script src="${coreUrl}"></script>
+    <script>
+      localStorage.setItem(MonthsLearnerCore.STORAGE_KEY, "real-progress-marker");
+    </script>
+    <script src="${appUrl}"></script>
+    <script>
+      const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+      const appText = () => document.querySelector("#app").textContent;
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      (async () => {
+        await wait();
+        assert(appText().includes("Graduation test mode"), "test mode heading did not render");
+        assert(document.querySelector('[data-action="start-graduation"]').textContent.trim() === "Take graduation check", "test mode did not expose graduation check");
+        assert(localStorage.getItem(MonthsLearnerCore.STORAGE_KEY) === "real-progress-marker", "test mode touched real progress storage");
+        const testState = JSON.parse(localStorage.getItem(MonthsLearnerCore.STORAGE_KEY + ".graduationTest"));
+        assert(testState.goal.status === "eligible_for_check", "test profile was not graduation eligible");
+        document.querySelector('[data-action="start-graduation"]').click();
+        await wait();
+        assert(document.querySelector("#graduation-input"), "graduation input did not render from test mode");
+        assert(appText().includes("graduation check"), "graduation check did not start from test mode");
+        document.body.setAttribute("data-test-status", "PASS");
+      })().catch((error) => {
+        document.body.setAttribute("data-test-status", "FAIL " + error.message);
+      });
+    </script>
+  </body>
+</html>`,
+    "utf8",
+  );
+
+  try {
+    const output = execFileSync(
+      browser,
+      [
+        "--headless=new",
+        "--disable-gpu",
+        "--no-first-run",
+        "--window-size=1280,720",
+        "--force-device-scale-factor=1",
+        `--user-data-dir=${userDataDir}`,
+        "--virtual-time-budget=3000",
+        "--dump-dom",
+        `${pathToFileURL(harnessPath).href}?graduationTest=1`,
+      ],
+      { encoding: "utf8", timeout: 30000 },
+    );
+    assert.match(output, /data-test-status="PASS"/);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -1059,6 +1143,7 @@ test("feedback lozenge text is vertically balanced", (t) => {
           assert(ringDisplay !== "none", "Correct ring was hidden under reduced motion");
           assert(secondaryRingStyle.display === "none", "Secondary correct ring was not reduced");
           assert(Number(ringStyle.opacity) >= 0.2, "Correct reduced-motion ring was not visible");
+          assert(ringStyle.transform !== "none", "Correct reduced-motion ring did not have a growth transform");
         } else {
           assert(toastAnimation.includes("toast-fade"), "Correct toast wrapper animation was missing");
           assert(correctAnimation.includes("correct-label-pop"), "Correct lozenge pop animation was missing");

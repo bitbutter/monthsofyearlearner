@@ -44,6 +44,23 @@ test("active drill does not expose early finish while due or retry work remains"
   assert.doesNotMatch(app, /End now/);
 });
 
+test("daily session limit is five minutes", () => {
+  const app = read("app.js");
+  const core = read("core.js");
+  assert.match(core, /const DAILY_MINUTES = 5;/);
+  assert.match(app, /Today's 5 minute practice/);
+  assert.match(app, /<p class="timer-readout">5:00<\/p>/);
+  assert.doesNotMatch(app, /Today's 8 minute practice/);
+});
+
+test("graduation test mode uses isolated storage and the real exam route", () => {
+  const app = read("app.js");
+  assert.match(app, /graduationTestMode/);
+  assert.match(app, /Core\.STORAGE_KEY}\.graduationTest/);
+  assert.match(app, /createGraduationTestState/);
+  assert.match(app, /Graduation test mode/);
+});
+
 test("queue exhaustion and timer completion share the session summary", () => {
   const app = read("app.js");
   assert.match(app, /finishSession\(\);\s*return;/);
@@ -57,6 +74,6 @@ test("settings copy names the exact storage key for clearing progress", () => {
   const app = read("app.js");
   const core = read("core.js");
   assert.match(app, /Clear local progress for \$\{storageKey\}/);
-  assert.match(app, /const storageKey = Core\.STORAGE_KEY/);
+  assert.match(app, /: Core\.STORAGE_KEY/);
   assert.match(core, /monthsOfYearLearner\.v1/);
 });

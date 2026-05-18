@@ -3,7 +3,7 @@
 const MonthsLearnerCore = (function buildMonthsLearnerCore() {
   const STORAGE_KEY = "monthsOfYearLearner.v1";
   const SCHEMA_VERSION = 1;
-  const DAILY_MINUTES = 8;
+  const DAILY_MINUTES = 5;
   const MONTHS = Object.freeze([
     "January",
     "February",
@@ -607,6 +607,19 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     return { ok: errors.length === 0, errors };
   }
 
+  function migrateStoredState(value) {
+    const migrated = clone(value);
+    if (
+      migrated &&
+      migrated.version === SCHEMA_VERSION &&
+      migrated.settings &&
+      migrated.settings.dailyMinutes === 8
+    ) {
+      migrated.settings.dailyMinutes = DAILY_MINUTES;
+    }
+    return migrated;
+  }
+
   function parseStoredState(raw) {
     if (raw === null || raw === undefined) {
       return { status: "missing", state: null, errors: [] };
@@ -617,11 +630,12 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     } catch (error) {
       return { status: "invalid", state: null, errors: [`Stored JSON could not be parsed: ${error.message}`] };
     }
-    const validation = validateState(parsed);
+    const migrated = migrateStoredState(parsed);
+    const validation = validateState(migrated);
     if (!validation.ok) {
-      return { status: "invalid", state: parsed, errors: validation.errors };
+      return { status: "invalid", state: migrated, errors: validation.errors };
     }
-    return { status: "valid", state: parsed, errors: [] };
+    return { status: "valid", state: migrated, errors: [] };
   }
 
   function cardLevel(card) {
@@ -1091,10 +1105,10 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
   }
 
   function sessionPhase(elapsedSeconds) {
-    if (elapsedSeconds < 20) return "start_check";
-    if (elapsedSeconds < 80) return "warmup";
-    if (elapsedSeconds < 320) return "main";
-    if (elapsedSeconds < 440) return "fluency";
+    if (elapsedSeconds < 15) return "start_check";
+    if (elapsedSeconds < 60) return "warmup";
+    if (elapsedSeconds < 200) return "main";
+    if (elapsedSeconds < 270) return "fluency";
     return "sequence";
   }
 

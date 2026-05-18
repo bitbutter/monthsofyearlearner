@@ -49,10 +49,22 @@ function makeFluentState(now = baseNow) {
 test("initial state seeds the canonical MVP cards due immediately", () => {
   const state = Core.createInitialState(baseNow);
   assert.equal(state.version, 1);
+  assert.equal(state.settings.dailyMinutes, 5);
   assert.equal(Object.keys(state.cards).length, 50);
   assert.equal(Core.knownCardIds().length, 50);
   assert.equal(Core.computeMasterySnapshot(state, baseNow).dueCards, 50);
   assert.equal(Core.validateState(state).ok, true);
+});
+
+test("stored progress migrates from the previous 8 minute setting", () => {
+  const state = Core.createInitialState(baseNow);
+  state.settings.dailyMinutes = 8;
+
+  const parsed = Core.parseStoredState(JSON.stringify(state));
+
+  assert.equal(parsed.status, "valid");
+  assert.equal(parsed.state.settings.dailyMinutes, 5);
+  assert.equal(Core.validateState(parsed.state).ok, true);
 });
 
 test("answer checking requires full month names and exact month numbers", () => {
@@ -171,16 +183,16 @@ test("due cards keep historical level but do not count toward mastery readiness"
   assert.equal(Core.graduationEligibility(state, baseNow).eligible, false);
 });
 
-test("session phase boundaries match the 8 minute session shape", () => {
+test("session phase boundaries match the 5 minute session shape", () => {
   assert.equal(Core.sessionPhase(0), "start_check");
-  assert.equal(Core.sessionPhase(19), "start_check");
-  assert.equal(Core.sessionPhase(20), "warmup");
-  assert.equal(Core.sessionPhase(79), "warmup");
-  assert.equal(Core.sessionPhase(80), "main");
-  assert.equal(Core.sessionPhase(319), "main");
-  assert.equal(Core.sessionPhase(320), "fluency");
-  assert.equal(Core.sessionPhase(439), "fluency");
-  assert.equal(Core.sessionPhase(440), "sequence");
+  assert.equal(Core.sessionPhase(14), "start_check");
+  assert.equal(Core.sessionPhase(15), "warmup");
+  assert.equal(Core.sessionPhase(59), "warmup");
+  assert.equal(Core.sessionPhase(60), "main");
+  assert.equal(Core.sessionPhase(199), "main");
+  assert.equal(Core.sessionPhase(200), "fluency");
+  assert.equal(Core.sessionPhase(269), "fluency");
+  assert.equal(Core.sessionPhase(270), "sequence");
 });
 
 test("selector does not invent work when no due or mastered cards exist", () => {
