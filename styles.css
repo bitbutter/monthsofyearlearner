@@ -385,7 +385,7 @@ h3 {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 520px;
   padding: clamp(22px, 5vw, 54px);
 }
@@ -427,10 +427,24 @@ h3 {
   font-size: 1.8rem;
 }
 
+.answer-input:disabled {
+  background: #f7f9f8;
+  color: var(--ink);
+  opacity: 1;
+}
+
 .confidence-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  margin-top: 18px;
+}
+
+.correction-row {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
   margin-top: 18px;
 }
 
@@ -483,32 +497,25 @@ h3 {
   background: var(--green);
 }
 
-.feedback.incorrect .feedback-label {
+.incorrect-label {
   background: var(--coral);
-  margin-bottom: 26px;
+  margin: 0;
   padding: 12px 18px;
   font-size: clamp(2rem, 5vw, 4rem);
   line-height: 1;
 }
 
 .correction-line {
+  display: block;
   max-width: 760px;
-  margin: 0 0 18px;
+  margin: 0;
   font-size: clamp(1.35rem, 3vw, 2.2rem);
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .correction-line strong {
   color: var(--teal-dark);
-}
-
-.missed-question {
-  max-width: 760px;
-  margin: 0 0 12px;
-  color: var(--muted);
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
-  font-weight: 800;
-  line-height: 1.3;
 }
 
 .correct-toast {
@@ -649,6 +656,7 @@ pre {
   }
 
   .confidence-row,
+  .correction-row,
   .drill-status,
   .two-column,
   .metric-grid,
@@ -656,8 +664,27 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .correction-line {
+    max-height: 9rem;
+    overflow-y: auto;
+  }
+
   .drill-status {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .drill-status div {
+    padding: 8px 10px;
+  }
+
+  .drill-status strong {
+    font-size: 1.1rem;
+  }
+
+  .drill-status span {
+    font-size: 0.75rem;
   }
 
   .prompt-surface {
@@ -667,5 +694,64 @@ pre {
   .data-list div {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+}
+
+@media (max-width: 640px) and (max-height: 700px) {
+  .drill-shell {
+    gap: 10px;
+    padding-top: 8px;
+  }
+
+  .drill-status {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .drill-status div {
+    padding: 6px 4px;
+    text-align: center;
+  }
+
+  .drill-status strong {
+    font-size: 0.95rem;
+  }
+
+  .drill-status span {
+    font-size: 0.65rem;
+  }
+
+  .prompt-surface {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .prompt-meta {
+    margin-bottom: 12px;
+  }
+
+  .prompt-text {
+    margin-bottom: 18px;
+    font-size: 1.75rem;
+  }
+
+  .answer-input {
+    min-height: 54px;
+    font-size: 1.35rem;
+  }
+
+  .correction-row {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .incorrect-label {
+    padding: 8px 12px;
+    font-size: 1.5rem;
+  }
+
+  .correction-line {
+    max-height: 5.5rem;
+    font-size: 1.05rem;
   }
 }

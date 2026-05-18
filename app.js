@@ -445,7 +445,7 @@
     feedback = applied.event;
     render();
     const nextButton = document.querySelector("[data-action='next-card']");
-    if (nextButton) nextButton.focus();
+    if (nextButton) nextButton.focus({ preventScroll: true });
   }
 
   function finishSession() {
@@ -539,10 +539,12 @@
 
   function renderFeedback() {
     return `
-      <div class="feedback incorrect">
-        <p class="feedback-label">Incorrect</p>
-        <p class="missed-question">${escapeHtml(feedback.prompt)}</p>
-        <p class="correction-line">Correct answer: <strong>${escapeHtml(feedback.expected)}</strong></p>
+      <h1 class="prompt-text">${escapeHtml(feedback.prompt)}</h1>
+      <label class="answer-label" for="answer-input">Answer</label>
+      <input id="answer-input" class="answer-input" type="text" value="${escapeHtml(feedback.submitted || "")}" disabled />
+      <div class="correction-row" aria-live="polite">
+        <span class="feedback-label incorrect-label">Incorrect</span>
+        <span class="correction-line">Correct answer: <strong>${escapeHtml(feedback.expected)}</strong></span>
         <button class="primary-button" data-action="next-card">Continue</button>
       </div>
     `;

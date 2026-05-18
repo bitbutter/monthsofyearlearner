@@ -32,11 +32,16 @@ test("browser flow persists an in-progress answer event before session completio
   const harnessPath = path.join(tempDir, "harness.html");
   const coreUrl = pathToFileURL(path.join(root, "core.js")).href;
   const appUrl = pathToFileURL(path.join(root, "app.js")).href;
+  const styleUrl = pathToFileURL(path.join(root, "styles.css")).href;
 
   fs.writeFileSync(
     harnessPath,
     `<!doctype html>
 <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="${styleUrl}" />
+  </head>
   <body>
     <div id="app"></div>
     <script>
@@ -100,13 +105,19 @@ test("browser flow persists an in-progress answer event before session completio
         assert(stored.sessions[0].answerEvents.length === 1, "answer event was not persisted");
         assert(stored.sessions[0].answerEvents[0].correct === true, "persisted event was not correct");
         const nextInput = document.querySelector("#answer-input");
+        const nextPromptTop = document.querySelector(".prompt-text").getBoundingClientRect().top;
         nextInput.value = "wrong";
         nextInput.dispatchEvent(new Event("input", { bubbles: true }));
         document.querySelector('[data-confidence="Sure"]').click();
         await wait();
-        assert(document.querySelector(".feedback.incorrect .feedback-label").textContent.trim() === "Incorrect", "incorrect answer did not show a clear lozenge");
-        assert(!document.querySelector(".feedback.incorrect h1"), "incorrect answer showed a duplicate heading");
-        assert(appText().includes(nextPromptText), "incorrect answer did not show the full question");
+        assert(document.querySelector(".prompt-text").textContent === nextPromptText, "incorrect answer moved or changed the question title");
+        const feedbackPromptTop = document.querySelector(".prompt-text").getBoundingClientRect().top;
+        assert(Math.abs(feedbackPromptTop - nextPromptTop) <= 2, "incorrect answer shifted the question title from " + nextPromptTop + " to " + feedbackPromptTop);
+        assert(document.querySelector("#answer-input").disabled, "incorrect answer did not disable the answer input");
+        assert(document.querySelector("#answer-input").value === "wrong", "incorrect answer did not keep the submitted answer visible");
+        assert(!document.querySelector(".confidence-row"), "incorrect answer still showed confidence buttons");
+        assert(document.querySelector(".incorrect-label").textContent.trim() === "Incorrect", "incorrect answer did not show a clear lozenge");
+        assert(document.querySelectorAll("h1").length === 1, "incorrect answer showed a duplicate heading");
         assert(appText().includes("Correct answer:"), "incorrect answer did not show the correct answer");
         assert(appText().includes("Continue"), "incorrect answer did not show a continue button");
         assert(!appText().includes("Your answer"), "incorrect answer still showed the answer table");
@@ -132,8 +143,181 @@ test("browser flow persists an in-progress answer event before session completio
         "--headless=new",
         "--disable-gpu",
         "--no-first-run",
+        "--window-size=375,667",
+        "--force-device-scale-factor=1",
         `--user-data-dir=${userDataDir}`,
         "--virtual-time-budget=3000",
+        "--dump-dom",
+        pathToFileURL(harnessPath).href,
+      ],
+      { encoding: "utf8", timeout: 30000 },
+    );
+    assert.match(output, /data-test-status="PASS"/);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("incorrect feedback keeps prompt position with long desktop corrections", (t) => {
+  const browser = findChrome();
+  if (!browser) {
+    t.skip("Chrome or Edge is not installed in a known location");
+    return;
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "months-learner-layout-"));
+  const userDataDir = path.join(tempDir, "profile");
+  const harnessPath = path.join(tempDir, "harness.html");
+  const styleUrl = pathToFileURL(path.join(root, "styles.css")).href;
+
+  fs.writeFileSync(
+    harnessPath,
+    `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="${styleUrl}" />
+  </head>
+  <body>
+    <section class="prompt-surface"></section>
+    <script>
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const fixture = document.querySelector(".prompt-surface");
+      const normalControls = [
+        '<div class="prompt-meta"><span>Daily session</span><span>Month order</span></div>',
+        '<h1 class="prompt-text">Type the months from 1 to 12.</h1>',
+        '<label class="answer-label" for="answer-input">Answer</label>',
+        '<input id="answer-input" class="answer-input" type="text" autocomplete="off" inputmode="text" />',
+        '<div class="confidence-row" aria-label="Submit with confidence">',
+        '<button class="confidence-button"><strong>Sure</strong><span>I knew it.</span></button>',
+        '<button class="confidence-button"><strong>Unsure</strong><span>I think this is right.</span></button>',
+        '<button class="confidence-button"><strong>Guessed</strong><span>I am guessing.</span></button>',
+        '</div>',
+      ].join("");
+      const longCorrection = [
+        '<div class="prompt-meta"><span>Daily session</span><span>Month order</span></div>',
+        '<h1 class="prompt-text">Type the months from 1 to 12.</h1>',
+        '<label class="answer-label" for="answer-input">Answer</label>',
+        '<input id="answer-input" class="answer-input" type="text" value="January, March" disabled />',
+        '<div class="correction-row" aria-live="polite">',
+        '<span class="feedback-label incorrect-label">Incorrect</span>',
+        '<span class="correction-line">Correct answer: <strong>January, February, March, April, May, June, July, August, September, October, November, December</strong></span>',
+        '<button class="primary-button" data-action="next-card">Continue</button>',
+        '</div>',
+      ].join("");
+      try {
+        fixture.innerHTML = normalControls;
+        const normalTop = fixture.querySelector(".prompt-text").getBoundingClientRect().top;
+        fixture.innerHTML = longCorrection;
+        const correctionTop = fixture.querySelector(".prompt-text").getBoundingClientRect().top;
+        assert(Math.abs(correctionTop - normalTop) <= 2, "long correction shifted the question title from " + normalTop + " to " + correctionTop);
+        document.body.setAttribute("data-test-status", "PASS");
+      } catch (error) {
+        document.body.setAttribute("data-test-status", "FAIL " + error.message);
+      }
+    </script>
+  </body>
+</html>`,
+    "utf8",
+  );
+
+  try {
+    const output = execFileSync(
+      browser,
+      [
+        "--headless=new",
+        "--disable-gpu",
+        "--no-first-run",
+        "--window-size=1280,720",
+        "--force-device-scale-factor=1",
+        `--user-data-dir=${userDataDir}`,
+        "--virtual-time-budget=1000",
+        "--dump-dom",
+        pathToFileURL(harnessPath).href,
+      ],
+      { encoding: "utf8", timeout: 30000 },
+    );
+    assert.match(output, /data-test-status="PASS"/);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("long mobile correction keeps Continue visible", (t) => {
+  const browser = findChrome();
+  if (!browser) {
+    t.skip("Chrome or Edge is not installed in a known location");
+    return;
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "months-learner-mobile-layout-"));
+  const userDataDir = path.join(tempDir, "profile");
+  const harnessPath = path.join(tempDir, "harness.html");
+  const styleUrl = pathToFileURL(path.join(root, "styles.css")).href;
+
+  fs.writeFileSync(
+    harnessPath,
+    `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="${styleUrl}" />
+  </head>
+  <body>
+    <main class="drill-shell">
+      <header class="drill-status">
+        <div><strong>7:57</strong><span>remaining</span></div>
+        <div><strong>49</strong><span>due</span></div>
+        <div><strong>50%</strong><span>accuracy</span></div>
+        <div><strong>Get ready</strong><span>activity</span></div>
+      </header>
+      <section class="prompt-surface" aria-live="polite">
+        <div class="prompt-meta"><span>Daily session</span><span>Month order</span></div>
+        <h1 class="prompt-text">Type the months from 1 to 12.</h1>
+        <label class="answer-label" for="answer-input">Answer</label>
+        <input id="answer-input" class="answer-input" type="text" value="January, March" disabled />
+        <div class="correction-row" aria-live="polite">
+          <span class="feedback-label incorrect-label">Incorrect</span>
+          <span class="correction-line">Correct answer: <strong>January, February, March, April, May, June, July, August, September, October, November, December</strong></span>
+          <button class="primary-button" data-action="next-card">Continue</button>
+        </div>
+      </section>
+      <footer class="drill-footer">
+        <span class="compact">Session continues until the timer ends or due work is complete.</span>
+      </footer>
+    </main>
+    <script>
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      try {
+        const button = document.querySelector('[data-action="next-card"]');
+        button.focus({ preventScroll: true });
+        const rect = button.getBoundingClientRect();
+        assert(rect.bottom <= window.innerHeight, "Continue button bottom was " + rect.bottom + " with viewport " + window.innerHeight);
+        document.body.setAttribute("data-test-status", "PASS");
+      } catch (error) {
+        document.body.setAttribute("data-test-status", "FAIL " + error.message);
+      }
+    </script>
+  </body>
+</html>`,
+    "utf8",
+  );
+
+  try {
+    const output = execFileSync(
+      browser,
+      [
+        "--headless=new",
+        "--disable-gpu",
+        "--no-first-run",
+        "--window-size=375,667",
+        "--force-device-scale-factor=1",
+        `--user-data-dir=${userDataDir}`,
+        "--virtual-time-budget=1000",
         "--dump-dom",
         pathToFileURL(harnessPath).href,
       ],
