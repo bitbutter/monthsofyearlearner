@@ -154,6 +154,14 @@
     `;
   }
 
+  function completedSessionCount() {
+    return state.sessions.filter((session) => session.isInProgress !== true).length;
+  }
+
+  function plural(value, singular, pluralValue) {
+    return value === 1 ? singular : pluralValue;
+  }
+
   function masteryPanel() {
     const snapshot = Core.computeMasterySnapshot(state, new Date());
     const eligibility = Core.graduationEligibility(state, new Date());
@@ -176,24 +184,74 @@
     `;
   }
 
-  function trendLine() {
+  function trendLine(label = "Last 7 sessions mastery trend") {
     const recent = Core.recentSessionSummaries(state);
     if (recent.length === 0) {
       return '<p class="compact">No mastery trend yet.</p>';
     }
-    const points = recent
-      .map((session, index) => {
-        const x = recent.length === 1 ? 50 : Math.round((index / (recent.length - 1)) * 100);
-        const y = 100 - session.masteryPercent;
-        return `${x},${y}`;
-      })
-      .join(" ");
+    const plotted = recent.map((session, index) => {
+      const x = recent.length === 1 ? 50 : Math.round((index / (recent.length - 1)) * 100);
+      const y = Math.round(92 - session.masteryPercent * 0.84);
+      return { x, y };
+    });
+    const points = plotted.map((point) => `${point.x},${point.y}`).join(" ");
     return `
-      <div class="trend" aria-label="Last 7 sessions mastery trend">
+      <div class="trend" aria-label="${escapeHtml(label)}">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
           <polyline points="${points}" />
+          ${plotted.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="3" />`).join("")}
         </svg>
       </div>
+    `;
+  }
+
+  function progressTrendPanel() {
+    const recent = Core.recentSessionSummaries(state);
+    if (recent.length === 0) {
+      return "";
+    }
+    const first = recent[0];
+    const latest = recent[recent.length - 1];
+    const change = latest.masteryPercent - first.masteryPercent;
+    const changeText =
+      change > 0
+        ? `up ${change} ${plural(change, "point", "points")}`
+        : change < 0
+          ? `down ${Math.abs(change)} ${plural(Math.abs(change), "point", "points")}`
+          : "steady";
+    return `
+      <section class="panel progress-trend-panel" aria-labelledby="trend-heading">
+        <div class="panel-heading">
+          <h2 id="trend-heading">Progress over time</h2>
+          <span class="status-pill">Last ${recent.length} ${plural(recent.length, "session", "sessions")}</span>
+        </div>
+        ${trendLine("Mastery over recent sessions")}
+        <p class="compact">Mastery is ${changeText} across the saved sessions shown here.</p>
+      </section>
+    `;
+  }
+
+  function sessionSummaryBand(session) {
+    const accuracy = session.answers ? percent(session.correct, session.answers) : 0;
+    return `
+      <section class="summary-band" aria-label="Session summary">
+        <div><strong>${accuracy}%</strong><span>accuracy</span></div>
+        <div><strong>${session.answers}</strong><span>reviewed</span></div>
+        <div><strong>${formatMs(session.averageResponseMs)}</strong><span>average pace</span></div>
+        <div><strong>${session.relearnedCards}</strong><span>relearned</span></div>
+      </section>
+    `;
+  }
+
+  function sessionProgressPanel(session) {
+    const snapshot = session.masterySnapshot;
+    return `
+      <section class="panel">
+        <h2>${snapshot.masteryPercent}% mastery</h2>
+        ${progressBar(snapshot)}
+        <p>Today: ${snapshot.becameFluent} ${plural(snapshot.becameFluent, "card", "cards")} became fluent, ${snapshot.becameWeak} ${plural(snapshot.becameWeak, "needs", "need")} review again.</p>
+        <p>Next due: ${snapshot.nextDueAt ? formatDate(snapshot.nextDueAt) : "No scheduled review yet"}.</p>
+      </section>
     `;
   }
 
@@ -371,12 +429,7 @@
     if (!activeSession) return;
     const selection = Core.selectNextCard(state, activeSession, new Date());
     if (!selection) {
-      activeCard = null;
-      activeSession.noWork = true;
-      feedback = null;
-      toast = null;
-      clearSureFlash();
-      render();
+      finishSession();
       return;
     }
     activeCard = {
@@ -466,15 +519,18 @@
   }
 
   function renderDrill() {
+    if (!activeCard) {
+      throw new Error("Drill view requires an active card. Finish the session when no work remains.");
+    }
     const definitions = Core.makeCardDefinitions();
     const snapshot = Core.computeMasterySnapshot(state, new Date());
     const eventCount = activeSession.answerEvents.length;
     const correct = activeSession.answerEvents.filter((event) => event.correct).length;
     const accuracy = eventCount ? percent(correct, eventCount) : 0;
     const canStop = snapshot.dueCards === 0 && activeSession.retryQueue.length === 0;
-    const answerArea = activeCard === null ? renderNoWork() : feedback ? renderFeedback() : renderPrompt(activeCard.definition);
+    const answerArea = feedback ? renderFeedback() : renderPrompt(activeCard.definition);
     const toastMarkup = toast ? renderCorrectToast() : "";
-    const groupLabel = activeCard === null ? "Complete" : cardKindLabel(definitions[activeCard.cardId], activeCard.isRetry);
+    const groupLabel = cardKindLabel(definitions[activeCard.cardId], activeCard.isRetry);
 
     return `
       <main class="drill-shell">
@@ -503,19 +559,9 @@
     `;
   }
 
-  function renderNoWork() {
-    return `
-      <div class="feedback correct">
-        <p class="feedback-label">Complete</p>
-        <h1>No due review is waiting.</h1>
-        <p class="compact">The app will not schedule new or learning cards just to fill time.</p>
-        <button class="primary-button" data-action="finish-session">Finish session</button>
-      </div>
-    `;
-  }
-
   function renderPrompt(definition) {
     return `
+      ${renderPromptInstruction(definition)}
       <h1 class="prompt-text">${escapeHtml(definition.prompt)}</h1>
       <label class="answer-label" for="answer-input">Answer</label>
       <input id="answer-input" class="answer-input" type="text" autocomplete="off" inputmode="text" />
@@ -532,6 +578,20 @@
     `;
   }
 
+  function promptInstruction(definition) {
+    if (!definition) return "";
+    if (definition.id === "gap_fill:even_months") return "Type the missing months in order.";
+    if (definition.id === "ordinal_sequence:full") return "Type all 12 months in order.";
+    if (definition.id === "ordinal_sequence:first_half") return "Type months 1 to 6 in order.";
+    if (definition.id === "ordinal_sequence:second_half") return "Type months 7 to 12 in order.";
+    return "";
+  }
+
+  function renderPromptInstruction(definition) {
+    const instruction = promptInstruction(definition);
+    return instruction ? `<p class="prompt-instruction">${escapeHtml(instruction)}</p>` : "";
+  }
+
   function confidenceHelp(confidence) {
     if (confidence === "Sure") return "I knew it.";
     if (confidence === "Unsure") return "I think this is right.";
@@ -540,6 +600,7 @@
 
   function renderFeedback() {
     return `
+      ${renderPromptInstruction(activeCard ? activeCard.definition : null)}
       <h1 class="prompt-text">${escapeHtml(feedback.prompt)}</h1>
       <label class="answer-label" for="answer-input">Answer</label>
       <input id="answer-input" class="answer-input" type="text" value="${escapeHtml(feedback.submitted || "")}" disabled />
@@ -554,38 +615,32 @@
   function renderCorrectToast() {
     return `
       <div class="correct-toast" role="status" aria-live="polite">
-        <span>Correct!</span>
+        <span class="correct-ring correct-ring-primary" aria-hidden="true"></span>
+        <span class="correct-ring correct-ring-secondary" aria-hidden="true"></span>
+        <span class="correct-label">Correct!</span>
       </div>
     `;
   }
 
   function renderSummary() {
     const latest = state.sessions[state.sessions.length - 1];
-    const snapshot = latest.masterySnapshot;
-    const accuracy = latest.answers ? percent(latest.correct, latest.answers) : 0;
     const eligibility = Core.graduationEligibility(state, new Date());
     const achieved = state.goal.status === "achieved";
+    const sessionCount = completedSessionCount();
+    const sessionNoun = plural(sessionCount, "session", "sessions");
     return `
       <main class="app-shell">
         <header class="topbar">
           <div>
             <p class="eyebrow">${latest.isExtraPractice ? "Extra practice" : "Daily session"}</p>
-            <h1>${achieved ? "Goal achieved" : "Session summary"}</h1>
+            <h1>${achieved ? "Goal achieved" : "Session complete"}</h1>
+            <p class="summary-lede">You completed ${sessionCount} ${sessionNoun}! Every answer updated your practice plan and moved you closer to knowing the months without help.</p>
           </div>
           <button class="ghost-button" data-action="home">Home</button>
         </header>
-        <section class="summary-band">
-          <div><strong>${accuracy}%</strong><span>accuracy</span></div>
-          <div><strong>${latest.answers}</strong><span>reviewed</span></div>
-          <div><strong>${formatMs(latest.averageResponseMs)}</strong><span>average pace</span></div>
-          <div><strong>${latest.relearnedCards}</strong><span>relearned</span></div>
-        </section>
-        <section class="panel">
-          <h2>${snapshot.masteryPercent}% mastery</h2>
-          ${progressBar(snapshot)}
-          <p>Today: ${snapshot.becameFluent} cards became fluent, ${snapshot.becameWeak} need review again.</p>
-          <p>Next due: ${snapshot.nextDueAt ? formatDate(snapshot.nextDueAt) : "No scheduled review yet"}.</p>
-        </section>
+        ${sessionSummaryBand(latest)}
+        ${sessionProgressPanel(latest)}
+        ${progressTrendPanel()}
         <div class="action-row">
           <button class="primary-button" data-action="practice-again">Practice again</button>
           ${
@@ -742,6 +797,7 @@
         </header>
         <section class="prompt-surface">
           <div class="prompt-meta"><span>No feedback until the end</span><span>${definition.group}</span></div>
+          ${renderPromptInstruction(definition)}
           <h1 class="prompt-text">${escapeHtml(definition.prompt)}</h1>
           <label class="answer-label" for="graduation-input">Answer</label>
           <input id="graduation-input" class="answer-input" type="text" autocomplete="off" />
