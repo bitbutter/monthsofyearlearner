@@ -281,8 +281,6 @@
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img">
           <polyline class="trend-practised" points="${practicedPoints}" />
           <polyline class="trend-confident" points="${confidentPoints}" />
-          ${practiced.map((point) => `<circle class="trend-practised" cx="${point.x}" cy="${point.y}" r="3" />`).join("")}
-          ${confident.map((point) => `<circle class="trend-confident" cx="${point.x}" cy="${point.y}" r="3" />`).join("")}
         </svg>
         <div class="trend-legend">
           <span><i class="trend-swatch trend-practised"></i>Practised skills</span>

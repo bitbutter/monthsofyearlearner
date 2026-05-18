@@ -726,7 +726,7 @@ test("queue exhaustion lands on the same learner-facing summary page", (t) => {
         assert(appText().includes("Every answer updated your practice plan"), "summary did not include learner-facing goal progress copy");
         assert(document.querySelector(".summary-band"), "summary metrics were not included");
         assert(document.querySelector(".progress-trend-panel"), "progress-over-time panel was not included");
-        assert(document.querySelector(".trend circle"), "progress trend did not render a visible point");
+        assert(!document.querySelector(".trend circle"), "progress trend should not render point markers");
         const practisedLine = document.querySelector("polyline.trend-practised").getAttribute("points");
         const confidentLine = document.querySelector("polyline.trend-confident").getAttribute("points");
         assert(practisedLine.startsWith("0,92 "), "practised line did not start from the synthetic zero baseline");

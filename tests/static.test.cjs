@@ -87,6 +87,18 @@ test("queue exhaustion and timer completion share the session summary", () => {
   assert.doesNotMatch(app, /No due review is waiting/);
 });
 
+test("progress trend graph is taller, semantic, and lines-only", () => {
+  const app = read("app.js");
+  const css = read("styles.css");
+  assert.doesNotMatch(app, /<circle class="trend-/);
+  assert.match(css, /\.trend\s*{[\s\S]*min-height: 192px;/);
+  assert.match(css, /--trend-practised: #6d5a99;/);
+  assert.match(css, /--trend-confident: #0b7285;/);
+  assert.match(css, /\.trend polyline\.trend-practised\s*{[\s\S]*stroke: var\(--trend-practised\);/);
+  assert.match(css, /\.trend polyline\.trend-confident\s*{[\s\S]*stroke: var\(--trend-confident\);/);
+  assert.doesNotMatch(css, /\.trend circle/);
+});
+
 test("settings copy names the exact storage key for clearing progress", () => {
   const app = read("app.js");
   const core = read("core.js");
