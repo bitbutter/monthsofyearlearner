@@ -367,16 +367,25 @@ test("feedback lozenge text is vertically balanced", (t) => {
         const top = textRect.top - labelRect.top;
         const bottom = labelRect.bottom - textRect.bottom;
         const minClearance = window.innerWidth < 640 ? 5 : 8;
+        const minLift = window.innerWidth < 640 ? 1 : 2;
         assert(top >= minClearance, selector + " top clearance was " + top);
         assert(bottom >= minClearance, selector + " bottom clearance was " + bottom);
-        assert(Math.abs(top - bottom) <= 8, selector + " vertical clearance was unbalanced: top " + top + ", bottom " + bottom);
+        assert(bottom >= top + minLift, selector + " label sat too low: top " + top + ", bottom " + bottom);
+        assert(bottom - top <= 18, selector + " label sat too high: top " + top + ", bottom " + bottom);
+      };
+      const colorAlpha = (value) => {
+        const match = /rgba?\\([^,]+,[^,]+,[^,]+(?:,\\s*([\\d.]+))?\\)/.exec(value);
+        return match && match[1] ? Number(match[1]) : 1;
       };
       try {
         const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const toastAnimation = getComputedStyle(document.querySelector(".correct-toast")).animationName;
+        const toast = document.querySelector(".correct-toast");
+        const correctLabel = document.querySelector("#correct-label");
+        const toastAnimation = getComputedStyle(toast).animationName;
         const correctAnimation = getComputedStyle(document.querySelector("#correct-label")).animationName;
-        const ringAnimation = getComputedStyle(document.querySelector(".correct-toast"), "::before").animationName;
-        const ringDisplay = getComputedStyle(document.querySelector(".correct-toast"), "::before").display;
+        const ringStyle = getComputedStyle(toast, "::before");
+        const ringAnimation = ringStyle.animationName;
+        const ringDisplay = ringStyle.display;
         if (reducedMotion) {
           assert(toastAnimation === "none", "Correct toast wrapper motion was not reduced");
           assert(correctAnimation === "none", "Correct lozenge motion was not reduced");
@@ -387,6 +396,9 @@ test("feedback lozenge text is vertically balanced", (t) => {
           assert(correctAnimation.includes("correct-label-pop"), "Correct lozenge pop animation was missing");
           assert(ringAnimation.includes("correct-ring-pop"), "Correct lozenge ring animation was missing");
           assert(ringDisplay !== "none", "Correct lozenge ring was missing");
+          assert(parseFloat(ringStyle.width) > correctLabel.getBoundingClientRect().width * 1.25, "Correct ring was not wider than the lozenge");
+          assert(parseFloat(ringStyle.borderTopWidth) >= 8, "Correct ring border was too subtle");
+          assert(colorAlpha(ringStyle.borderTopColor) >= 0.35, "Correct ring border was too transparent");
         }
         measure("#incorrect-label");
         measure("#correct-label");

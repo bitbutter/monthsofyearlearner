@@ -13,10 +13,12 @@ function read(file) {
 
 test("static page loads dependency-free scripts and styles", () => {
   const html = read("index.html");
+  assert.match(html, /<link rel="icon" href="favicon\.svg" type="image\/svg\+xml"/);
   assert.match(html, /<link rel="stylesheet" href="styles\.css"/);
   assert.match(html, /<script src="core\.js"><\/script>/);
   assert.match(html, /<script src="app\.js"><\/script>/);
   assert.doesNotMatch(html, /https?:\/\//);
+  assert.ok(fs.existsSync(path.join(root, "favicon.svg")));
 });
 
 test("UI maps answer-input Enter to Sure and exposes explicit confidence labels", () => {
