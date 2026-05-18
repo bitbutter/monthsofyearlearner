@@ -478,6 +478,10 @@ h3 {
 
 .feedback.incorrect .feedback-label {
   background: var(--coral);
+  margin-bottom: 26px;
+  padding: 12px 18px;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1;
 }
 
 .correction-line {

@@ -487,7 +487,6 @@
     return `
       <div class="feedback incorrect">
         <p class="feedback-label">Incorrect</p>
-        <h1>Incorrect</h1>
         <p class="missed-question">${escapeHtml(feedback.prompt)}</p>
         <p class="correction-line">Correct answer: <strong>${escapeHtml(feedback.expected)}</strong></p>
         <dl class="data-list">

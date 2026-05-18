@@ -84,7 +84,8 @@ test("browser flow persists an in-progress answer event before session completio
         nextInput.dispatchEvent(new Event("input", { bubbles: true }));
         document.querySelector('[data-confidence="Sure"]').click();
         await wait();
-        assert(appText().includes("Incorrect"), "incorrect answer did not show a clear heading");
+        assert(document.querySelector(".feedback.incorrect .feedback-label").textContent.trim() === "Incorrect", "incorrect answer did not show a clear lozenge");
+        assert(!document.querySelector(".feedback.incorrect h1"), "incorrect answer showed a duplicate heading");
         assert(appText().includes(nextPromptText), "incorrect answer did not show the full question");
         assert(appText().includes("Correct answer:"), "incorrect answer did not show the correct answer");
         assert(appText().includes("Continue"), "incorrect answer did not show a continue button");
