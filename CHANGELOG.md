@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Move graduation check above last session summary (#19)
 - Make progress graph lines-only and taller (#18)
 - Start progress graph from zero baseline (#16)
 - Clarify early progress graph copy (#15)

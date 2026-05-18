@@ -235,6 +235,12 @@ h3 {
   gap: 18px;
 }
 
+.side-column {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
 .panel,
 .congrats {
   padding: 22px;
@@ -334,14 +340,8 @@ h3 {
   margin-top: 18px;
 }
 
-.graduation-readiness {
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 18px;
-}
-
-.graduation-readiness h3 {
-  margin: 0 0 8px;
+.graduation-readiness h2 {
+  margin-bottom: 8px;
 }
 
 .graduation-readiness p {

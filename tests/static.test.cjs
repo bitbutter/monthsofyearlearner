@@ -75,6 +75,22 @@ test("graduation readiness copy is learner-facing", () => {
   assert.doesNotMatch(app, /neighbor target/);
 });
 
+test("home layout puts the graduation check above last session in the right column", () => {
+  const app = read("app.js");
+  const css = read("styles.css");
+  const sideColumn = app.indexOf('<div class="side-column">');
+  const graduation = app.indexOf("${graduationReadinessPanel(eligibility)}", sideColumn);
+  const lastSession = app.indexOf("${lastSessionPanel()}", sideColumn);
+  const masteryPanel = app.slice(app.indexOf("function masteryPanel()"), app.indexOf("function trendLine("));
+  assert.notEqual(sideColumn, -1);
+  assert.notEqual(graduation, -1);
+  assert.notEqual(lastSession, -1);
+  assert(graduation < lastSession);
+  assert.doesNotMatch(masteryPanel, /graduationReadinessPanel/);
+  assert.match(css, /\.side-column\s*{[\s\S]*gap: 18px;/);
+  assert.match(app, /<section class="panel graduation-readiness"/);
+});
+
 test("queue exhaustion and timer completion share the session summary", () => {
   const app = read("app.js");
   assert.match(app, /finishSession\(\);\s*return;/);

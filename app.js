@@ -210,8 +210,8 @@
       eligibility.conversionReady + Math.min(eligibility.neighborReady, eligibility.neighborRequired) + eligibility.sequenceReady;
     const confidentRequired = eligibility.conversionRequired + eligibility.neighborRequired + eligibility.sequenceRequired;
     return `
-      <div class="graduation-readiness">
-        <h3>Graduation Check</h3>
+      <section class="panel graduation-readiness" aria-labelledby="graduation-check-heading">
+        <h2 id="graduation-check-heading">Graduation Check</h2>
         <p>${
           eligibility.eligible
             ? "You're ready for the graduation check. It checks whether you can do the months without help."
@@ -229,13 +229,12 @@
           <div><dt>Questions due today</dt><dd>${eligibility.dueRequiredIds.length}</dd></div>
           <div><dt>Questions to fix</dt><dd>${eligibility.weakIds.length}</dd></div>
         </dl>
-      </div>
+      </section>
     `;
   }
 
   function masteryPanel() {
     const snapshot = Core.computeMasterySnapshot(state, new Date());
-    const eligibility = Core.graduationEligibility(state, new Date());
     return `
       <section class="panel progress-panel" aria-labelledby="progress-heading">
         <div class="panel-heading">
@@ -250,7 +249,6 @@
           <div><strong>${snapshot.conversionFluencyPercent}%</strong><span>conversion fluency</span></div>
           <div><strong>${snapshot.sequenceFluencyPercent}%</strong><span>sequence fluency</span></div>
         </div>
-        ${graduationReadinessPanel(eligibility)}
       </section>
     `;
   }
@@ -400,7 +398,10 @@
         </section>
         <div class="two-column">
           ${masteryPanel()}
-          ${lastSessionPanel()}
+          <div class="side-column">
+            ${graduationReadinessPanel(eligibility)}
+            ${lastSessionPanel()}
+          </div>
         </div>
       </main>
     `;
