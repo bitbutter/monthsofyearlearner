@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Enable Enter in graduation check (#11)
+- Shuffle graduation check prompts (#12)
 - Start Correct ring immediately (#10)
 - Hide Correct ring until settle (#9)
 - Rework Correct toast motion path (#8)

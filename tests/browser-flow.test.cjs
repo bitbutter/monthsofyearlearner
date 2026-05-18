@@ -444,6 +444,7 @@ test("graduation test mode seeds an isolated eligible profile", (t) => {
     <script src="${coreUrl}"></script>
     <script>
       localStorage.setItem(MonthsLearnerCore.STORAGE_KEY, "real-progress-marker");
+      Math.random = () => 0;
     </script>
     <script src="${appUrl}"></script>
     <script>
@@ -451,6 +452,19 @@ test("graduation test mode seeds an isolated eligible profile", (t) => {
       const appText = () => document.querySelector("#app").textContent;
       const assert = (condition, message) => {
         if (!condition) throw new Error(message);
+      };
+      const answerForPrompt = (prompt) => {
+        const months = MonthsLearnerCore.MONTHS;
+        const monthNumber = /^What is month (\\d+)\\?/.exec(prompt);
+        if (monthNumber) return months[Number(monthNumber[1]) - 1];
+        const numberForMonth = /^What number is ([A-Za-z]+)\\?/.exec(prompt);
+        if (numberForMonth) return String(months.indexOf(numberForMonth[1]) + 1);
+        const after = /^What month comes after ([A-Za-z]+)\\?/.exec(prompt);
+        if (after) return months[months.indexOf(after[1]) + 1];
+        const before = /^What month comes before ([A-Za-z]+)\\?/.exec(prompt);
+        if (before) return months[months.indexOf(before[1]) - 1];
+        if (prompt.includes("1 to 12")) return months.join(", ");
+        throw new Error("No test answer for prompt: " + prompt);
       };
       (async () => {
         await wait();
@@ -463,6 +477,17 @@ test("graduation test mode seeds an isolated eligible profile", (t) => {
         await wait();
         assert(document.querySelector("#graduation-input"), "graduation input did not render from test mode");
         assert(appText().includes("graduation check"), "graduation check did not start from test mode");
+        const canonicalFirstId = MonthsLearnerCore.buildGraduationPrompts()[0];
+        const canonicalFirstPrompt = MonthsLearnerCore.makeCardDefinitions()[canonicalFirstId].prompt;
+        const firstPrompt = document.querySelector(".prompt-text").textContent;
+        assert(firstPrompt !== canonicalFirstPrompt, "graduation check did not shuffle prompt order");
+        const graduationInput = document.querySelector("#graduation-input");
+        graduationInput.value = answerForPrompt(firstPrompt);
+        graduationInput.dispatchEvent(new Event("input", { bubbles: true }));
+        graduationInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        assert(document.querySelector('[data-graduation-confidence="Sure"]').classList.contains("keyboard-flash"), "graduation Enter did not flash the Sure button");
+        await wait(180);
+        assert(document.querySelector(".drill-status strong").textContent === "2", "graduation Enter did not advance to the next prompt");
         document.body.setAttribute("data-test-status", "PASS");
       })().catch((error) => {
         document.body.setAttribute("data-test-status", "FAIL " + error.message);

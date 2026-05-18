@@ -28,6 +28,7 @@ test("UI maps answer-input Enter to Sure and exposes explicit confidence labels"
   assert.match(app, /submitSureFromKeyboard\(\)/);
   assert.match(app, /keyboard-flash/);
   assert.match(app, /data-confidence/);
+  assert.match(app, /data-graduation-confidence/);
   assert.doesNotMatch(app, /Digit1|Digit2|Digit3|Numpad1|Numpad2|Numpad3/);
 });
 
@@ -59,6 +60,7 @@ test("graduation test mode uses isolated storage and the real exam route", () =>
   assert.match(app, /Core\.STORAGE_KEY}\.graduationTest/);
   assert.match(app, /createGraduationTestState/);
   assert.match(app, /Graduation test mode/);
+  assert.match(app, /Core\.shuffleGraduationPrompts\(\)/);
 });
 
 test("queue exhaustion and timer completion share the session summary", () => {

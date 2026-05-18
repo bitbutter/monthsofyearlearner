@@ -363,6 +363,7 @@
   }
 
   function startSession(isExtraPractice) {
+    graduation = null;
     activeSession = Core.createSessionDraft(state, { now: new Date(), isExtraPractice });
     activeCard = null;
     feedback = null;
@@ -432,8 +433,8 @@
     return "Month number";
   }
 
-  function flashSureButton() {
-    const button = document.querySelector('[data-confidence="Sure"]');
+  function flashSureButton(selector = '[data-confidence="Sure"]') {
+    const button = document.querySelector(selector);
     if (!button) return;
     button.classList.add("keyboard-flash");
     if (sureFlashHandle) {
@@ -446,7 +447,18 @@
   }
 
   function submitSureFromKeyboard() {
-    if (enterSubmitPending || !activeCard || feedback || toast) return;
+    if (enterSubmitPending) return;
+    if (graduation) {
+      if (graduation.result) return;
+      enterSubmitPending = true;
+      flashSureButton('[data-graduation-confidence="Sure"]');
+      window.setTimeout(() => {
+        enterSubmitPending = false;
+        submitGraduation("Sure");
+      }, 120);
+      return;
+    }
+    if (!activeCard || feedback || toast) return;
     enterSubmitPending = true;
     flashSureButton();
     window.setTimeout(() => {
@@ -823,7 +835,7 @@
     }
     graduation = {
       startedAt: new Date().toISOString(),
-      promptIds: Core.buildGraduationPrompts(),
+      promptIds: Core.shuffleGraduationPrompts(),
       index: 0,
       responses: [],
       firstInputAt: null,
@@ -1054,9 +1066,7 @@
     if (event.target.id === "answer-input" || event.target.id === "graduation-input") {
       if (event.key === "Enter") {
         event.preventDefault();
-        if (event.target.id === "answer-input") {
-          submitSureFromKeyboard();
-        }
+        submitSureFromKeyboard();
       }
     }
   });

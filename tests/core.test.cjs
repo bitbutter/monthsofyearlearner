@@ -305,6 +305,32 @@ test("graduation check enforces separate thresholds and guessed answers fail pro
   assert.equal(graded.state.cards["number_to_name:1"].dueAt, "2026-05-24T08:00:00.000Z");
 });
 
+test("graduation prompts shuffle and grading accepts shuffled response order", () => {
+  const state = makeFluentState(baseNow);
+  const definitions = Core.makeCardDefinitions();
+  const canonical = Core.buildGraduationPrompts();
+  const shuffled = Core.shuffleGraduationPrompts(() => 0);
+
+  assert.notDeepEqual(shuffled, canonical);
+  assert.deepEqual([...shuffled].sort(), [...canonical].sort());
+
+  const responses = shuffled.map((cardId) => ({
+    cardId,
+    submitted: Core.expectedAnswer(definitions[cardId]),
+    confidence: "Sure",
+  }));
+  const graded = Core.gradeGraduationCheck(state, responses, {
+    startedAt: baseNow,
+    now: new Date("2026-05-24T08:00:00.000Z"),
+  });
+
+  assert.equal(graded.check.passed, true);
+  assert.deepEqual(
+    graded.check.promptResults.map((result) => result.cardId),
+    shuffled,
+  );
+});
+
 test("passed graduation check records achievement without altering ready cards", () => {
   const state = makeFluentState(baseNow);
   const definitions = Core.makeCardDefinitions();

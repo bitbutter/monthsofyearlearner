@@ -1243,6 +1243,18 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     ];
   }
 
+  function shuffleGraduationPrompts(random = Math.random) {
+    assert(typeof random === "function", "shuffleGraduationPrompts requires a random function");
+    const promptIds = buildGraduationPrompts();
+    for (let index = promptIds.length - 1; index > 0; index -= 1) {
+      const value = random();
+      assert(Number.isFinite(value) && value >= 0 && value < 1, `Invalid shuffle random value: ${value}`);
+      const swapIndex = Math.floor(value * (index + 1));
+      [promptIds[index], promptIds[swapIndex]] = [promptIds[swapIndex], promptIds[index]];
+    }
+    return promptIds;
+  }
+
   function gradeGraduationCheck(state, responses, options = {}) {
     const definitions = makeCardDefinitions();
     const now = asDate(options.now || new Date());
@@ -1250,6 +1262,9 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     const nextState = clone(state);
     const promptIds = buildGraduationPrompts();
     assert(responses.length === promptIds.length, `Graduation check requires ${promptIds.length} responses`);
+    const requiredPromptIds = new Set(promptIds);
+    const seenPromptIds = new Set();
+    const responsesByCardId = new Map();
 
     const failedCardIds = [];
     const promptResults = [];
@@ -1260,8 +1275,11 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     let singleAnswerCorrect = 0;
 
     responses.forEach((response, index) => {
-      const cardId = promptIds[index];
-      assert(response.cardId === cardId, `Graduation response ${index} must be for ${cardId}`);
+      const cardId = response.cardId;
+      assert(requiredPromptIds.has(cardId), `Graduation response ${index} has unknown prompt ${cardId}`);
+      assert(!seenPromptIds.has(cardId), `Graduation response ${index} duplicates ${cardId}`);
+      seenPromptIds.add(cardId);
+      responsesByCardId.set(cardId, response);
       assert(CONFIDENCES.includes(response.confidence), `Invalid confidence: ${response.confidence}`);
       const definition = definitions[cardId];
       const checked = checkAnswer(definition, response.submitted);
@@ -1294,6 +1312,7 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
         sequenceCorrect = passedPrompt;
       }
     });
+    assert(seenPromptIds.size === requiredPromptIds.size, "Graduation check responses must cover every prompt");
 
     const numberToNamePassed = numberToNameCorrect === 12;
     const nameToNumberPassed = nameToNumberCorrect === 12;
@@ -1334,7 +1353,7 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     } else {
       nextState.goal.status = "in_progress";
       failedCardIds.forEach((cardId) => {
-        const response = responses[promptIds.indexOf(cardId)];
+        const response = responsesByCardId.get(cardId);
         const card = nextState.cards[cardId];
         card.lastResult = "incorrect";
         card.lastConfidence = response.confidence;
@@ -1392,6 +1411,7 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     graduationEligibility,
     recomputeGoalStatus,
     buildGraduationPrompts,
+    shuffleGraduationPrompts,
     gradeGraduationCheck,
     deriveTypingBaseline,
     typingBaselineStatus,
