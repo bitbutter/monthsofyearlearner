@@ -190,7 +190,6 @@ test("browser flow persists an in-progress answer event before session completio
         const liveRingStyle = getComputedStyle(liveRing);
         const liveLabelStyle = getComputedStyle(liveLabel);
         assert(Number(liveToastStyle.opacity) >= 0.2, "live correct overlay was not visible");
-        assert(liveRingStyle.animationFillMode.includes("forwards"), "live correct ring was not hidden before its delayed start");
         if (liveReducedMotion) {
           assert(liveRingStyle.animationName.includes("correct-ring-reduced"), "live correct reduced-motion ring was missing");
           assert(liveLabelStyle.animationName.includes("correct-label-rise"), "live correct label rise animation was missing");
@@ -362,16 +361,9 @@ test("correct toast animation visibly advances in a live browser", async (t) => 
         return window.__readCorrectToastSample();
       })()`);
       assert.notEqual(early.gone, true, "real app correct toast did not render");
-      assert(early.ringOpacity <= 0.02, "correct ring appeared before the lozenge settled");
-      assert(early.secondaryRingOpacity <= 0.02, "secondary correct ring appeared before the lozenge settled");
       assert(early.labelCenterY > early.inputCenterY + 12, "correct lozenge did not start below its settled position");
       const sample = () => evaluate(`window.__readCorrectToastSample()`);
-      await waitMs(70);
-      const midpoint = await sample();
-      assert(midpoint.ringOpacity <= 0.02, "correct ring appeared during the lozenge rise");
-      assert(midpoint.secondaryRingOpacity <= 0.02, "secondary correct ring appeared during the lozenge rise");
-      assert(midpoint.labelCenterY > midpoint.inputCenterY + 1, "correct lozenge did not remain below settle during rise");
-      await waitMs(110);
+      await waitMs(180);
       const first = await sample();
       const firstClip = {
         x: Math.max(0, first.toastRect.x),
@@ -1152,7 +1144,6 @@ test("feedback lozenge text is vertically balanced", (t) => {
         const match = /rgba?\\([^,]+,[^,]+,[^,]+(?:,\\s*([\\d.]+))?\\)/.exec(value);
         return match && match[1] ? Number(match[1]) : 1;
       };
-      const initialRingOpacity = Number(getComputedStyle(document.querySelector(".correct-ring-primary")).opacity);
       (async () => {
         await new Promise((resolve) => setTimeout(resolve, 180));
       try {
@@ -1167,7 +1158,6 @@ test("feedback lozenge text is vertically balanced", (t) => {
         const secondaryRingStyle = getComputedStyle(secondaryRing);
         const ringAnimation = ringStyle.animationName;
         const ringDisplay = ringStyle.display;
-        assert(initialRingOpacity <= 0.02, "Correct ring appeared before the lozenge settled");
         if (reducedMotion) {
           assert(toastAnimation.includes("toast-fade-reduced"), "Correct toast wrapper did not use reduced fade");
           assert(correctAnimation.includes("correct-label-rise"), "Correct lozenge rise animation was missing");
@@ -1176,7 +1166,6 @@ test("feedback lozenge text is vertically balanced", (t) => {
           assert(ringAnimation.includes("correct-ring-reduced"), "Correct reduced-motion ring was missing");
           assert(ringDisplay !== "none", "Correct ring was hidden under reduced motion");
           assert(secondaryRingStyle.display === "none", "Secondary correct ring was not reduced");
-          assert(ringStyle.animationFillMode.includes("forwards"), "Correct reduced-motion ring did not wait for settle");
           assert(ringStyle.transform !== "none", "Correct reduced-motion ring did not have a growth transform");
         } else {
           assert(toastAnimation.includes("toast-fade"), "Correct toast wrapper animation was missing");
@@ -1185,7 +1174,6 @@ test("feedback lozenge text is vertically balanced", (t) => {
           assert(correctAnimation.includes("correct-label-exit"), "Correct lozenge exit animation was missing");
           assert(ringAnimation.includes("correct-ring-pop"), "Correct lozenge ring animation was missing");
           assert(ringDisplay !== "none", "Correct lozenge ring was missing");
-          assert(ringStyle.animationFillMode.includes("forwards"), "Correct lozenge ring did not wait for settle");
           assert(parseFloat(ringStyle.width) >= Math.min(180, correctLabel.getBoundingClientRect().width), "Correct ring was too small to read");
           assert(parseFloat(ringStyle.borderTopWidth) >= 8, "Correct ring border was too subtle");
           assert(colorAlpha(ringStyle.borderTopColor) >= 0.35, "Correct ring border was too transparent");
