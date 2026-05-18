@@ -489,11 +489,6 @@
         <p class="feedback-label">Incorrect</p>
         <p class="missed-question">${escapeHtml(feedback.prompt)}</p>
         <p class="correction-line">Correct answer: <strong>${escapeHtml(feedback.expected)}</strong></p>
-        <dl class="data-list">
-          <div><dt>Your answer</dt><dd>${escapeHtml(feedback.submitted || "(blank)")}</dd></div>
-          <div><dt>Confidence</dt><dd>${escapeHtml(feedback.confidence)}</dd></div>
-          <div><dt>Next interval</dt><dd>${feedback.nextIntervalDays} day${feedback.nextIntervalDays === 1 ? "" : "s"}</dd></div>
-        </dl>
         <button class="primary-button" data-action="next-card">Continue</button>
       </div>
     `;

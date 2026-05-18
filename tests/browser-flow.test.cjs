@@ -89,6 +89,8 @@ test("browser flow persists an in-progress answer event before session completio
         assert(appText().includes(nextPromptText), "incorrect answer did not show the full question");
         assert(appText().includes("Correct answer:"), "incorrect answer did not show the correct answer");
         assert(appText().includes("Continue"), "incorrect answer did not show a continue button");
+        assert(!appText().includes("Your answer"), "incorrect answer still showed the answer table");
+        assert(!appText().includes("Next interval"), "incorrect answer still showed scheduler details");
         assert(!appText().includes("Correct it before spacing resumes"), "opaque incorrect feedback is still present");
         assert(document.querySelector('[data-action="next-card"]'), "incorrect answer did not require click to continue");
         await new Promise((resolve) => setTimeout(resolve, 800));
