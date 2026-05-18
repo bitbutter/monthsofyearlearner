@@ -663,6 +663,19 @@
     `;
   }
 
+  function alignCorrectToastToInput() {
+    const toastNode = document.querySelector(".correct-toast");
+    if (!toastNode) return;
+    const inputNode = document.querySelector("#answer-input");
+    const surfaceNode = toastNode.closest(".prompt-surface");
+    if (!inputNode || !surfaceNode) return;
+
+    const inputRect = inputNode.getBoundingClientRect();
+    const surfaceRect = surfaceNode.getBoundingClientRect();
+    const inputCenterY = inputRect.top + inputRect.height / 2 - surfaceRect.top;
+    toastNode.style.setProperty("--correct-settle-y", `${Math.round(inputCenterY)}px`);
+  }
+
   function renderSummary() {
     const latest = state.sessions[state.sessions.length - 1];
     const eligibility = Core.graduationEligibility(state, new Date());
@@ -972,6 +985,7 @@
     } else {
       root.innerHTML = renderHome();
     }
+    alignCorrectToastToInput();
   }
 
   function routeAction(action) {
