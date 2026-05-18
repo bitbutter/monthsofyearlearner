@@ -199,6 +199,43 @@ test("selector does not invent work when no due or mastered cards exist", () => 
   assert.equal(Core.selectNextCard(state, draft, baseNow).cardId, "number_to_name:1");
 });
 
+test("initial due selection is deterministic and mixes prompt types", () => {
+  function collectOrder() {
+    let state = Core.createInitialState(baseNow);
+    const draft = Core.createSessionDraft(state, { now: baseNow });
+    const definitions = Core.makeCardDefinitions();
+    const order = [];
+
+    for (let index = 0; index < Core.CARD_TOTAL; index += 1) {
+      const selection = Core.selectNextCard(state, draft, baseNow);
+      assert.ok(selection, "expected another due card");
+      order.push(selection.cardId);
+      draft.shownCount += 1;
+      const result = Core.applyReview(
+        state,
+        selection.cardId,
+        Core.expectedAnswer(definitions[selection.cardId]),
+        "Sure",
+        timing(),
+        { now: baseNow },
+      );
+      state = result.state;
+      draft.answerEvents.push(result.event);
+    }
+
+    return order;
+  }
+
+  const order = collectOrder();
+  assert.deepEqual(order, collectOrder());
+  assert.ok(new Set(order.slice(0, 12).map((cardId) => Core.makeCardDefinitions()[cardId].group)).size > 1);
+
+  const numberToNameMonths = order
+    .filter((cardId) => cardId.startsWith("number_to_name:"))
+    .map((cardId) => Number(cardId.split(":")[1]));
+  assert.notDeepEqual(numberToNameMonths, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+});
+
 test("in-progress session audit events persist and final completion replaces the draft record", () => {
   let state = Core.createInitialState(baseNow);
   const draft = Core.createSessionDraft(state, { now: baseNow });

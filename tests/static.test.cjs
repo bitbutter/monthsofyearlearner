@@ -19,10 +19,12 @@ test("static page loads dependency-free scripts and styles", () => {
   assert.doesNotMatch(html, /https?:\/\//);
 });
 
-test("UI code blocks answer-input Enter submission and exposes explicit confidence labels", () => {
+test("UI maps answer-input Enter to Sure and exposes explicit confidence labels", () => {
   const app = read("app.js");
   assert.match(app, /event\.key === "Enter"/);
   assert.match(app, /event\.preventDefault\(\)/);
+  assert.match(app, /submitSureFromKeyboard\(\)/);
+  assert.match(app, /keyboard-flash/);
   assert.match(app, /data-confidence/);
   assert.doesNotMatch(app, /Digit1|Digit2|Digit3|Numpad1|Numpad2|Numpad3/);
 });

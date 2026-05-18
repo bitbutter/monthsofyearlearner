@@ -17,6 +17,8 @@
   let firstInputAt = null;
   let timerHandle = null;
   let autoAdvanceHandle = null;
+  let sureFlashHandle = null;
+  let enterSubmitPending = false;
   let graduation = null;
 
   function escapeHtml(value) {
@@ -297,11 +299,60 @@
     toast = null;
   }
 
+  function clearSureFlash() {
+    if (sureFlashHandle) {
+      window.clearTimeout(sureFlashHandle);
+      sureFlashHandle = null;
+    }
+    enterSubmitPending = false;
+  }
+
   function renderTimerOnly() {
     const node = document.querySelector("[data-timer]");
     if (node && activeSession) node.textContent = remainingTime();
     const phase = document.querySelector("[data-phase]");
-    if (phase && activeSession) phase.textContent = Core.sessionPhase(activeSession.elapsedSeconds);
+    if (phase && activeSession) phase.textContent = drillPhaseLabel(Core.sessionPhase(activeSession.elapsedSeconds));
+  }
+
+  function drillPhaseLabel(phase) {
+    if (phase === "start_check") return "Get ready";
+    if (phase === "warmup") return "Starting practice";
+    if (phase === "main") return "Practice";
+    if (phase === "fluency") return "Mixed practice";
+    if (phase === "sequence") return "Month order";
+    return "Practice";
+  }
+
+  function cardKindLabel(definition, isRetry) {
+    if (isRetry) return "Try again";
+    if (!definition) return "Complete";
+    if (definition.group === "neighbor") return "Before/after";
+    if (definition.group === "sequence") return "Month order";
+    if (definition.group === "cycle") return "Cycle practice";
+    return "Month number";
+  }
+
+  function flashSureButton() {
+    const button = document.querySelector('[data-confidence="Sure"]');
+    if (!button) return;
+    button.classList.add("keyboard-flash");
+    if (sureFlashHandle) {
+      window.clearTimeout(sureFlashHandle);
+    }
+    sureFlashHandle = window.setTimeout(() => {
+      button.classList.remove("keyboard-flash");
+      sureFlashHandle = null;
+    }, 220);
+  }
+
+  function submitSureFromKeyboard() {
+    if (enterSubmitPending || !activeCard || feedback || toast) return;
+    enterSubmitPending = true;
+    flashSureButton();
+    window.setTimeout(() => {
+      enterSubmitPending = false;
+      submitAnswer("Sure");
+    }, 120);
   }
 
   function remainingTime() {
@@ -323,6 +374,7 @@
       activeSession.noWork = true;
       feedback = null;
       toast = null;
+      clearSureFlash();
       render();
       return;
     }
@@ -335,6 +387,7 @@
     activeSession.shownCount += 1;
     feedback = null;
     toast = null;
+    clearSureFlash();
     promptShownAt = performance.now();
     firstInputAt = null;
     render();
@@ -399,6 +452,7 @@
     if (!activeSession) return;
     stopTimer();
     clearAutoAdvance();
+    clearSureFlash();
     activeSession.elapsedSeconds = Math.round((Date.now() - new Date(activeSession.startedAt).getTime()) / 1000);
     state = Core.completeSession(state, activeSession, new Date());
     saveState();
@@ -419,7 +473,7 @@
     const canStop = snapshot.dueCards === 0 && activeSession.retryQueue.length === 0;
     const answerArea = activeCard === null ? renderNoWork() : feedback ? renderFeedback() : renderPrompt(activeCard.definition);
     const toastMarkup = toast ? renderCorrectToast() : "";
-    const groupLabel = activeCard === null ? "complete" : activeCard.isRetry ? "Retry" : definitions[activeCard.cardId].group;
+    const groupLabel = activeCard === null ? "Complete" : cardKindLabel(definitions[activeCard.cardId], activeCard.isRetry);
 
     return `
       <main class="drill-shell">
@@ -427,7 +481,7 @@
           <div><strong data-timer>${remainingTime()}</strong><span>remaining</span></div>
           <div><strong>${snapshot.dueCards}</strong><span>due</span></div>
           <div><strong>${accuracy}%</strong><span>accuracy</span></div>
-          <div><strong data-phase>${Core.sessionPhase(activeSession.elapsedSeconds)}</strong><span>phase</span></div>
+          <div><strong data-phase>${drillPhaseLabel(Core.sessionPhase(activeSession.elapsedSeconds))}</strong><span>activity</span></div>
         </header>
         <section class="prompt-surface" aria-live="polite">
           <div class="prompt-meta">
@@ -827,6 +881,7 @@
     } else if (action === "home") {
       stopTimer();
       clearAutoAdvance();
+      clearSureFlash();
       activeSession = null;
       activeCard = null;
       feedback = null;
@@ -885,6 +940,9 @@
     if (event.target.id === "answer-input" || event.target.id === "graduation-input") {
       if (event.key === "Enter") {
         event.preventDefault();
+        if (event.target.id === "answer-input") {
+          submitSureFromKeyboard();
+        }
       }
     }
   });

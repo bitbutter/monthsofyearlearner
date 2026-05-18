@@ -449,6 +449,13 @@ h3 {
   background: #e8f4f3;
 }
 
+.confidence-button.keyboard-flash {
+  border-color: var(--green);
+  background: #dff5e7;
+  box-shadow: 0 0 0 4px rgba(39, 116, 71, 0.22);
+  transform: translateY(-1px);
+}
+
 .confidence-button strong,
 .confidence-button span {
   display: block;

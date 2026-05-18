@@ -1013,24 +1013,81 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     return recomputeGoalStatus(nextState, endedAt);
   }
 
-  function sortedDueCardIds(state, now = new Date()) {
-    const definitions = makeCardDefinitions();
-    return Object.keys(state.cards)
-      .filter((cardId) => isDue(state.cards[cardId].dueAt, now))
-      .sort((a, b) => {
-        const cardA = state.cards[a];
-        const cardB = state.cards[b];
-        const dueDiff = asDate(cardA.dueAt).getTime() - asDate(cardB.dueAt).getTime();
-        if (dueDiff !== 0) return dueDiff;
-        if (cardB.lapses !== cardA.lapses) return cardB.lapses - cardA.lapses;
-        const confidenceWeight = { Guessed: 3, Unsure: 2, Sure: 1, null: 0 };
-        const confidenceDiff = confidenceWeight[cardB.lastConfidence] - confidenceWeight[cardA.lastConfidence];
-        if (confidenceDiff !== 0) return confidenceDiff;
-        const groupWeight = { conversion: 0, neighbor: 1, sequence: 2, cycle: 3 };
-        const groupDiff = groupWeight[definitions[a].group] - groupWeight[definitions[b].group];
-        if (groupDiff !== 0) return groupDiff;
-        return a.localeCompare(b);
+  function hashString(value) {
+    let hash = 2166136261;
+    const text = String(value);
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function shuffledTieBreak(a, b, seed) {
+    if (!seed) {
+      return a.localeCompare(b);
+    }
+    const diff = hashString(`${a}:${seed}`) - hashString(`${b}:${seed}`);
+    return diff || a.localeCompare(b);
+  }
+
+  function duePriorityCompare(state, now, a, b) {
+    const cardA = state.cards[a];
+    const cardB = state.cards[b];
+    const dueDiff = asDate(cardA.dueAt).getTime() - asDate(cardB.dueAt).getTime();
+    if (dueDiff !== 0) return dueDiff;
+    if (cardB.lapses !== cardA.lapses) return cardB.lapses - cardA.lapses;
+    const confidenceWeight = { Guessed: 3, Unsure: 2, Sure: 1, null: 0 };
+    return confidenceWeight[cardB.lastConfidence] - confidenceWeight[cardA.lastConfidence];
+  }
+
+  function promptMixKey(definition) {
+    if (definition.id === "gap_fill:even_months") return "gap_fill";
+    if (definition.group === "sequence") return definition.id;
+    return definition.type;
+  }
+
+  function interleaveCardIds(cardIds, definitions, shuffleSeed) {
+    const buckets = new Map();
+    cardIds.forEach((cardId) => {
+      const key = promptMixKey(definitions[cardId]);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(cardId);
+    });
+
+    const bucketKeys = Array.from(buckets.keys()).sort((a, b) => shuffledTieBreak(a, b, shuffleSeed));
+    bucketKeys.forEach((key) => buckets.get(key).sort((a, b) => shuffledTieBreak(a, b, shuffleSeed)));
+
+    const mixed = [];
+    while (bucketKeys.some((key) => buckets.get(key).length > 0)) {
+      bucketKeys.forEach((key) => {
+        const bucket = buckets.get(key);
+        if (bucket.length > 0) mixed.push(bucket.shift());
       });
+    }
+    return mixed;
+  }
+
+  function sortedDueCardIds(state, now = new Date(), shuffleSeed = "") {
+    const definitions = makeCardDefinitions();
+    const dueIds = Object.keys(state.cards)
+      .filter((cardId) => isDue(state.cards[cardId].dueAt, now))
+      .sort((a, b) => duePriorityCompare(state, now, a, b) || shuffledTieBreak(a, b, shuffleSeed));
+
+    const result = [];
+    let bucket = [];
+    dueIds.forEach((cardId) => {
+      if (bucket.length > 0 && duePriorityCompare(state, now, bucket[0], cardId) !== 0) {
+        result.push(...interleaveCardIds(bucket, definitions, shuffleSeed));
+        bucket = [];
+      }
+      bucket.push(cardId);
+    });
+    if (bucket.length > 0) {
+      result.push(...interleaveCardIds(bucket, definitions, shuffleSeed));
+    }
+
+    return result;
   }
 
   function sessionPhase(elapsedSeconds) {
@@ -1046,7 +1103,7 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
     const retryQueue = sessionDraft.retryQueue || [];
     const retryIds = retryQueue.map((entry) => entry.cardId);
     const eligibleRetry = retryQueue.find((entry) => sessionDraft.shownCount >= entry.eligibleAfter);
-    const dueIds = sortedDueCardIds(state, now).filter((cardId) => !retryIds.includes(cardId));
+    const dueIds = sortedDueCardIds(state, now, sessionDraft.id).filter((cardId) => !retryIds.includes(cardId));
     const phase = sessionPhase(sessionDraft.elapsedSeconds || 0);
 
     if (eligibleRetry) {
@@ -1082,7 +1139,7 @@ const MonthsLearnerCore = (function buildMonthsLearnerCore() {
         const level = cardLevel(state.cards[cardId]);
         return (definition.group === "conversion" || definition.group === "neighbor") && (level === "fluent" || level === "durable");
       })
-      .sort();
+      .sort((a, b) => shuffledTieBreak(a, b, sessionDraft.id));
     if (maintenanceIds.length > 0) {
       const index = sessionDraft.shownCount % maintenanceIds.length;
       return { cardId: maintenanceIds[index], isRetry: false, phase };

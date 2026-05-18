@@ -86,8 +86,8 @@ CHANGES_TO: Full sequence recall is required for graduation, but conversion prom
 REASON: Serial recitation does not prove direct random access between month numbers and names.
 
 OLD: Confidence submission through numeric shortcuts.
-CHANGES_TO: Confidence is submitted only by explicit button activation.
-REASON: Number shortcuts conflict with month-number answers.
+CHANGES_TO: Confidence is submitted by explicit confidence button activation, with Enter in the answer input mapped to `Sure`.
+REASON: Number shortcuts conflict with month-number answers, while Enter supports fast keyboard practice.
 
 OLD: Spelling as separate from month-name recall.
 CHANGES_TO: Correct spelling of full month names is part of the learning goal.
@@ -194,7 +194,7 @@ The learner submits each typed answer with one of three confidence buttons:
 - `Guessed`: "I am guessing."
 
 The button label is the stored value. The supporting text can appear as a tooltip or accessible description.
-There are no confidence keyboard shortcuts. Pressing Enter in the answer input must not submit the answer, since number prompts use typed digits.
+There are no numeric confidence keyboard shortcuts. Pressing Enter in the answer input submits the current answer as `Sure` and briefly flashes the `Sure` button.
 
 The app records response time, time to first input, and typing time. Raw speed is never used to mark an answer wrong. A correct answer is only treated as slow for scheduling after the app has enough baseline data to distinguish hesitant recall from slow typing.
 
@@ -296,6 +296,7 @@ During drills:
 - Submitting requires explicit confidence button activation.
 - Mouse and touch users activate a confidence button by click or tap.
 - Keyboard users may Tab to a confidence button and activate the focused button with Enter or Space.
+- Pressing Enter in the answer input submits the current answer as `Sure` and briefly flashes the `Sure` button.
 - No global or numeric confidence shortcuts are allowed.
 - Feedback appears only after the answer and confidence have been submitted.
 - Progress strip showing elapsed time, due cards remaining, and current accuracy.

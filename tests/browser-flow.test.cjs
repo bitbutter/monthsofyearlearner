@@ -53,6 +53,22 @@ test("browser flow persists an in-progress answer event before session completio
     <script>
       const wait = () => new Promise((resolve) => setTimeout(resolve, 0));
       const appText = () => document.querySelector("#app").textContent;
+      const months = MonthsLearnerCore.MONTHS;
+      const answerForPrompt = (prompt) => {
+        const monthNumber = /^What is month (\\d+)\\?/.exec(prompt);
+        if (monthNumber) return months[Number(monthNumber[1]) - 1];
+        const numberForMonth = /^What number is ([A-Za-z]+)\\?/.exec(prompt);
+        if (numberForMonth) return String(months.indexOf(numberForMonth[1]) + 1);
+        const after = /^What month comes after ([A-Za-z]+)\\?/.exec(prompt);
+        if (after) return months[months.indexOf(after[1]) + 1];
+        const before = /^What month comes before ([A-Za-z]+)\\?/.exec(prompt);
+        if (before) return months[months.indexOf(before[1]) - 1];
+        if (prompt.includes("1 to 12")) return months.join(", ");
+        if (prompt.includes("1 to 6")) return months.slice(0, 6).join(", ");
+        if (prompt.includes("7 to 12")) return months.slice(6).join(", ");
+        if (prompt.includes("___")) return "February, April, June, August, October, December";
+        throw new Error("No test answer for prompt: " + prompt);
+      };
       const assert = (condition, message) => {
         if (!condition) throw new Error(message);
       };
@@ -64,11 +80,15 @@ test("browser flow persists an in-progress answer event before session completio
         const input = document.querySelector("#answer-input");
         assert(input, "answer input did not render");
         assert(document.activeElement === input, "answer input was not focused");
+        assert(document.querySelector("[data-phase]").textContent === "Get ready", "internal phase label was shown");
+        assert(!["start_check", "warmup", "main", "fluency", "sequence"].includes(document.querySelector("[data-phase]").textContent), "internal phase text leaked");
+        assert(!["conversion", "neighbor", "sequence"].includes(document.querySelector(".prompt-meta span:last-child").textContent), "internal prompt type leaked");
         const promptText = document.querySelector(".prompt-text").textContent;
-        input.value = promptText.includes("What number") ? "1" : "January";
+        input.value = answerForPrompt(promptText);
         input.dispatchEvent(new Event("input", { bubbles: true }));
-        document.querySelector('[data-confidence="Sure"]').click();
-        await wait();
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        assert(document.querySelector('[data-confidence="Sure"]').classList.contains("keyboard-flash"), "enter did not flash the Sure button");
+        await new Promise((resolve) => setTimeout(resolve, 180));
         assert(appText().includes("Correct!"), "correct toast did not render");
         await new Promise((resolve) => setTimeout(resolve, 800));
         assert(!appText().includes("Expected"), "correct answer should not show blocking feedback");
