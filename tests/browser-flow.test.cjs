@@ -52,12 +52,13 @@ test("browser flow persists an in-progress answer event before session completio
     <script src="${appUrl}"></script>
     <script>
       const wait = () => new Promise((resolve) => setTimeout(resolve, 0));
+      const appText = () => document.querySelector("#app").textContent;
       const assert = (condition, message) => {
         if (!condition) throw new Error(message);
       };
       (async () => {
         await wait();
-        assert(document.body.textContent.includes("Today's 8 minute practice"), "home screen did not render");
+        assert(appText().includes("Today's 8 minute practice"), "home screen did not render");
         document.querySelector('[data-action="start-session"]').click();
         await wait();
         const input = document.querySelector("#answer-input");
@@ -68,13 +69,29 @@ test("browser flow persists an in-progress answer event before session completio
         input.dispatchEvent(new Event("input", { bubbles: true }));
         document.querySelector('[data-confidence="Sure"]').click();
         await wait();
-        assert(document.body.textContent.includes("Expected"), "feedback did not render");
-        assert(document.body.textContent.includes("January"), "feedback did not name expected answer");
+        assert(appText().includes("Correct!"), "correct toast did not render");
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        assert(!appText().includes("Expected"), "correct answer should not show blocking feedback");
+        const nextPromptText = document.querySelector(".prompt-text").textContent;
+        assert(nextPromptText !== promptText, "correct answer did not auto-advance");
         const stored = JSON.parse(localStorage.getItem(MonthsLearnerCore.STORAGE_KEY));
         assert(stored.sessions.length === 1, "in-progress session was not persisted");
         assert(stored.sessions[0].isInProgress === true, "session was not marked in progress");
         assert(stored.sessions[0].answerEvents.length === 1, "answer event was not persisted");
         assert(stored.sessions[0].answerEvents[0].correct === true, "persisted event was not correct");
+        const nextInput = document.querySelector("#answer-input");
+        nextInput.value = "wrong";
+        nextInput.dispatchEvent(new Event("input", { bubbles: true }));
+        document.querySelector('[data-confidence="Sure"]').click();
+        await wait();
+        assert(appText().includes("Incorrect"), "incorrect answer did not show a clear heading");
+        assert(appText().includes(nextPromptText), "incorrect answer did not show the full question");
+        assert(appText().includes("Correct answer:"), "incorrect answer did not show the correct answer");
+        assert(appText().includes("Continue"), "incorrect answer did not show a continue button");
+        assert(!appText().includes("Correct it before spacing resumes"), "opaque incorrect feedback is still present");
+        assert(document.querySelector('[data-action="next-card"]'), "incorrect answer did not require click to continue");
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        assert(appText().includes("Correct answer:"), "incorrect feedback advanced without click");
         document.body.setAttribute("data-test-status", "PASS");
       })().catch((error) => {
         document.body.setAttribute("data-test-status", "FAIL " + error.message);

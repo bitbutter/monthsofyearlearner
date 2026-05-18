@@ -12,9 +12,11 @@
   let activeSession = null;
   let activeCard = null;
   let feedback = null;
+  let toast = null;
   let promptShownAt = 0;
   let firstInputAt = null;
   let timerHandle = null;
+  let autoAdvanceHandle = null;
   let graduation = null;
 
   function escapeHtml(value) {
@@ -287,6 +289,14 @@
     }
   }
 
+  function clearAutoAdvance() {
+    if (autoAdvanceHandle) {
+      window.clearTimeout(autoAdvanceHandle);
+      autoAdvanceHandle = null;
+    }
+    toast = null;
+  }
+
   function renderTimerOnly() {
     const node = document.querySelector("[data-timer]");
     if (node && activeSession) node.textContent = remainingTime();
@@ -312,6 +322,7 @@
       activeCard = null;
       activeSession.noWork = true;
       feedback = null;
+      toast = null;
       render();
       return;
     }
@@ -323,6 +334,7 @@
     };
     activeSession.shownCount += 1;
     feedback = null;
+    toast = null;
     promptShownAt = performance.now();
     firstInputAt = null;
     render();
@@ -332,7 +344,7 @@
 
   function submitAnswer(confidence) {
     const input = document.querySelector("#answer-input");
-    if (!input || !activeCard || feedback) return;
+    if (!input || !activeCard || feedback || toast) return;
     const submitted = input.value;
     const nowPerf = performance.now();
     const responseMs = Math.round(nowPerf - promptShownAt);
@@ -365,6 +377,18 @@
     state = Core.recordInProgressSession(state, activeSession, new Date());
     saveState();
 
+    if (applied.event.correct) {
+      feedback = null;
+      toast = applied.event;
+      render();
+      autoAdvanceHandle = window.setTimeout(() => {
+        autoAdvanceHandle = null;
+        toast = null;
+        loadNextCard();
+      }, 650);
+      return;
+    }
+
     feedback = applied.event;
     render();
     const nextButton = document.querySelector("[data-action='next-card']");
@@ -374,12 +398,14 @@
   function finishSession() {
     if (!activeSession) return;
     stopTimer();
+    clearAutoAdvance();
     activeSession.elapsedSeconds = Math.round((Date.now() - new Date(activeSession.startedAt).getTime()) / 1000);
     state = Core.completeSession(state, activeSession, new Date());
     saveState();
     activeSession = null;
     activeCard = null;
     feedback = null;
+    toast = null;
     view = "summary";
     render();
   }
@@ -392,6 +418,7 @@
     const accuracy = eventCount ? percent(correct, eventCount) : 0;
     const canStop = snapshot.dueCards === 0 && activeSession.retryQueue.length === 0;
     const answerArea = activeCard === null ? renderNoWork() : feedback ? renderFeedback() : renderPrompt(activeCard.definition);
+    const toastMarkup = toast ? renderCorrectToast() : "";
     const groupLabel = activeCard === null ? "complete" : activeCard.isRetry ? "Retry" : definitions[activeCard.cardId].group;
 
     return `
@@ -408,6 +435,7 @@
             <span>${groupLabel}</span>
           </div>
           ${answerArea}
+          ${toastMarkup}
         </section>
         <footer class="drill-footer">
           ${
@@ -457,16 +485,25 @@
 
   function renderFeedback() {
     return `
-      <div class="feedback ${feedback.correct ? "correct" : "incorrect"}">
-        <p class="feedback-label">${feedback.correct ? "Correct" : "Needs review"}</p>
-        <h1>${feedback.correct && feedback.confidence !== "Guessed" ? "Keep going." : "Correct it before spacing resumes."}</h1>
+      <div class="feedback incorrect">
+        <p class="feedback-label">Incorrect</p>
+        <h1>Incorrect</h1>
+        <p class="missed-question">${escapeHtml(feedback.prompt)}</p>
+        <p class="correction-line">Correct answer: <strong>${escapeHtml(feedback.expected)}</strong></p>
         <dl class="data-list">
-          <div><dt>Expected</dt><dd>${escapeHtml(feedback.expected)}</dd></div>
           <div><dt>Your answer</dt><dd>${escapeHtml(feedback.submitted || "(blank)")}</dd></div>
           <div><dt>Confidence</dt><dd>${escapeHtml(feedback.confidence)}</dd></div>
           <div><dt>Next interval</dt><dd>${feedback.nextIntervalDays} day${feedback.nextIntervalDays === 1 ? "" : "s"}</dd></div>
         </dl>
-        <button class="primary-button" data-action="next-card">Next prompt</button>
+        <button class="primary-button" data-action="next-card">Continue</button>
+      </div>
+    `;
+  }
+
+  function renderCorrectToast() {
+    return `
+      <div class="correct-toast" role="status" aria-live="polite">
+        <span>Correct!</span>
       </div>
     `;
   }
@@ -795,9 +832,11 @@
       render();
     } else if (action === "home") {
       stopTimer();
+      clearAutoAdvance();
       activeSession = null;
       activeCard = null;
       feedback = null;
+      toast = null;
       graduation = null;
       state = Core.recomputeGoalStatus(state, new Date());
       saveState();
