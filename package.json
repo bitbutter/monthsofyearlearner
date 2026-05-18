@@ -1,0 +1,16 @@
+{
+  "name": "monthsofyearlearner",
+  "version": "1.0.0",
+  "private": false,
+  "description": "A dependency-free browser app for practicing the months of the year.",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check core.js && node --check app.js"
+  },
+  "keywords": [
+    "education",
+    "months",
+    "spaced-repetition"
+  ],
+  "license": "MIT"
+}
