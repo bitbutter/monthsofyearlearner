@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Make progress graph lines-only and taller (#18)
 - Start progress graph from zero baseline (#16)
 - Clarify early progress graph copy (#15)
 - Add learner-facing graduation readiness copy (#14)
