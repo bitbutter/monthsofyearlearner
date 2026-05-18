@@ -180,7 +180,7 @@ test("browser flow persists an in-progress answer event before session completio
           await new Promise((resolve) => setTimeout(resolve, 20));
         }
         assert(appText().includes("Correct!"), "correct toast did not render");
-        await new Promise((resolve) => setTimeout(resolve, 80));
+        await new Promise((resolve) => setTimeout(resolve, 180));
         const liveReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const liveToast = document.querySelector(".correct-toast");
         const liveRing = document.querySelector(".correct-ring-primary");
@@ -190,7 +190,7 @@ test("browser flow persists an in-progress answer event before session completio
         const liveRingStyle = getComputedStyle(liveRing);
         const liveLabelStyle = getComputedStyle(liveLabel);
         assert(Number(liveToastStyle.opacity) >= 0.2, "live correct overlay was not visible");
-        assert(Number(liveRingStyle.opacity) >= 0.2, "live correct ring was not visible");
+        assert(liveRingStyle.animationFillMode.includes("forwards"), "live correct ring was not hidden before its delayed start");
         if (liveReducedMotion) {
           assert(liveRingStyle.animationName.includes("correct-ring-reduced"), "live correct reduced-motion ring was missing");
           assert(liveLabelStyle.animationName.includes("correct-label-rise"), "live correct label rise animation was missing");
@@ -304,7 +304,40 @@ test("correct toast animation visibly advances in a live browser", async (t) => 
   try {
     await withChromeRuntime(browser, harnessPath, userDataDir, async ({ evaluate, send }) => {
       await send("Page.enable");
-      await evaluate(`(() => {
+      await evaluate(`window.__readCorrectToastSample = () => {
+        const toast = document.querySelector(".correct-toast");
+        if (!toast) return { gone: true };
+        const ring = document.querySelector(".correct-ring-primary");
+        const secondaryRing = document.querySelector(".correct-ring-secondary");
+        const label = document.querySelector(".correct-label");
+        const toastStyle = getComputedStyle(toast);
+        const ringStyle = getComputedStyle(ring);
+        const secondaryRingStyle = getComputedStyle(secondaryRing);
+        const labelStyle = getComputedStyle(label);
+        const rect = toast.getBoundingClientRect();
+        const inputRect = document.querySelector("#answer-input").getBoundingClientRect();
+        const ringRect = ring.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        return {
+          reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+          toastOpacity: Number(toastStyle.opacity),
+          ringOpacity: Number(ringStyle.opacity),
+          secondaryRingOpacity: Number(secondaryRingStyle.opacity),
+          ringTransform: ringStyle.transform,
+          ringBorderColor: ringStyle.borderTopColor,
+          ringBoxShadow: ringStyle.boxShadow,
+          ringAnimation: ringStyle.animationName,
+          ringDuration: ringStyle.animationDuration,
+          labelAnimation: labelStyle.animationName,
+          labelOpacity: Number(labelStyle.opacity),
+          toastRect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          inputCenterY: inputRect.top + inputRect.height / 2,
+          ringCenterY: ringRect.top + ringRect.height / 2,
+          labelCenterY: labelRect.top + labelRect.height / 2,
+          viewport: { width: window.innerWidth, height: window.innerHeight },
+        };
+      };`);
+      const early = await evaluate(`(() => {
         const months = MonthsLearnerCore.MONTHS;
         const answerForPrompt = (prompt) => {
           const monthNumber = /^What is month (\\d+)\\?/.exec(prompt);
@@ -326,44 +359,19 @@ test("correct toast animation visibly advances in a live browser", async (t) => 
         input.value = answerForPrompt(document.querySelector(".prompt-text").textContent);
         input.dispatchEvent(new Event("input", { bubbles: true }));
         document.querySelector('[data-confidence="Sure"]').click();
+        return window.__readCorrectToastSample();
       })()`);
-      for (let attempts = 0; attempts < 30; attempts += 1) {
-        if (await evaluate(`document.querySelector(".correct-toast") !== null`)) break;
-        await waitMs(25);
-      }
-      assert.equal(await evaluate(`document.querySelector(".correct-toast") !== null`), true, "real app correct toast did not render");
-      const sample = () =>
-        evaluate(`(() => {
-          const toast = document.querySelector(".correct-toast");
-          if (!toast) return { gone: true };
-          const ring = document.querySelector(".correct-ring-primary");
-          const label = document.querySelector(".correct-label");
-          const toastStyle = getComputedStyle(toast);
-          const ringStyle = getComputedStyle(ring);
-          const labelStyle = getComputedStyle(label);
-          const rect = toast.getBoundingClientRect();
-          const inputRect = document.querySelector("#answer-input").getBoundingClientRect();
-          const ringRect = ring.getBoundingClientRect();
-          const labelRect = label.getBoundingClientRect();
-          return {
-            reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
-            toastOpacity: Number(toastStyle.opacity),
-            ringOpacity: Number(ringStyle.opacity),
-            ringTransform: ringStyle.transform,
-            ringBorderColor: ringStyle.borderTopColor,
-            ringBoxShadow: ringStyle.boxShadow,
-            ringAnimation: ringStyle.animationName,
-            ringDuration: ringStyle.animationDuration,
-            labelAnimation: labelStyle.animationName,
-            labelOpacity: Number(labelStyle.opacity),
-            toastRect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-            inputCenterY: inputRect.top + inputRect.height / 2,
-            ringCenterY: ringRect.top + ringRect.height / 2,
-            labelCenterY: labelRect.top + labelRect.height / 2,
-            viewport: { width: window.innerWidth, height: window.innerHeight },
-          };
-        })()`);
-      await waitMs(180);
+      assert.notEqual(early.gone, true, "real app correct toast did not render");
+      assert(early.ringOpacity <= 0.02, "correct ring appeared before the lozenge settled");
+      assert(early.secondaryRingOpacity <= 0.02, "secondary correct ring appeared before the lozenge settled");
+      assert(early.labelCenterY > early.inputCenterY + 12, "correct lozenge did not start below its settled position");
+      const sample = () => evaluate(`window.__readCorrectToastSample()`);
+      await waitMs(70);
+      const midpoint = await sample();
+      assert(midpoint.ringOpacity <= 0.02, "correct ring appeared during the lozenge rise");
+      assert(midpoint.secondaryRingOpacity <= 0.02, "secondary correct ring appeared during the lozenge rise");
+      assert(midpoint.labelCenterY > midpoint.inputCenterY + 1, "correct lozenge did not remain below settle during rise");
+      await waitMs(110);
       const first = await sample();
       const firstClip = {
         x: Math.max(0, first.toastRect.x),
@@ -1144,6 +1152,9 @@ test("feedback lozenge text is vertically balanced", (t) => {
         const match = /rgba?\\([^,]+,[^,]+,[^,]+(?:,\\s*([\\d.]+))?\\)/.exec(value);
         return match && match[1] ? Number(match[1]) : 1;
       };
+      const initialRingOpacity = Number(getComputedStyle(document.querySelector(".correct-ring-primary")).opacity);
+      (async () => {
+        await new Promise((resolve) => setTimeout(resolve, 180));
       try {
         const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const toast = document.querySelector(".correct-toast");
@@ -1156,6 +1167,7 @@ test("feedback lozenge text is vertically balanced", (t) => {
         const secondaryRingStyle = getComputedStyle(secondaryRing);
         const ringAnimation = ringStyle.animationName;
         const ringDisplay = ringStyle.display;
+        assert(initialRingOpacity <= 0.02, "Correct ring appeared before the lozenge settled");
         if (reducedMotion) {
           assert(toastAnimation.includes("toast-fade-reduced"), "Correct toast wrapper did not use reduced fade");
           assert(correctAnimation.includes("correct-label-rise"), "Correct lozenge rise animation was missing");
@@ -1164,7 +1176,7 @@ test("feedback lozenge text is vertically balanced", (t) => {
           assert(ringAnimation.includes("correct-ring-reduced"), "Correct reduced-motion ring was missing");
           assert(ringDisplay !== "none", "Correct ring was hidden under reduced motion");
           assert(secondaryRingStyle.display === "none", "Secondary correct ring was not reduced");
-          assert(Number(ringStyle.opacity) >= 0.2, "Correct reduced-motion ring was not visible");
+          assert(ringStyle.animationFillMode.includes("forwards"), "Correct reduced-motion ring did not wait for settle");
           assert(ringStyle.transform !== "none", "Correct reduced-motion ring did not have a growth transform");
         } else {
           assert(toastAnimation.includes("toast-fade"), "Correct toast wrapper animation was missing");
@@ -1173,6 +1185,7 @@ test("feedback lozenge text is vertically balanced", (t) => {
           assert(correctAnimation.includes("correct-label-exit"), "Correct lozenge exit animation was missing");
           assert(ringAnimation.includes("correct-ring-pop"), "Correct lozenge ring animation was missing");
           assert(ringDisplay !== "none", "Correct lozenge ring was missing");
+          assert(ringStyle.animationFillMode.includes("forwards"), "Correct lozenge ring did not wait for settle");
           assert(parseFloat(ringStyle.width) >= Math.min(180, correctLabel.getBoundingClientRect().width), "Correct ring was too small to read");
           assert(parseFloat(ringStyle.borderTopWidth) >= 8, "Correct ring border was too subtle");
           assert(colorAlpha(ringStyle.borderTopColor) >= 0.35, "Correct ring border was too transparent");
@@ -1183,6 +1196,7 @@ test("feedback lozenge text is vertically balanced", (t) => {
       } catch (error) {
         document.body.setAttribute("data-test-status", "FAIL " + error.message);
       }
+      })();
     </script>
   </body>
 </html>`,

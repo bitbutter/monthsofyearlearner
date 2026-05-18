@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Hide Correct ring until settle (#9)
 - Rework Correct toast motion path (#8)
 - Make Correct ring expand in reduced-motion mode (#6)
 - Add quick graduation exam test entry (#5)
