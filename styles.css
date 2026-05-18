@@ -299,6 +299,26 @@ h3 {
   margin-top: 18px;
 }
 
+.graduation-readiness {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.graduation-readiness h3 {
+  margin: 0 0 8px;
+}
+
+.graduation-readiness p {
+  margin: 0 0 14px;
+}
+
+.readiness-list dd span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
 .segment.new {
   background: #b9c3c8;
 }

@@ -201,6 +201,38 @@
     return value === 1 ? singular : pluralValue;
   }
 
+  function graduationButton(buttonClass = "secondary-button") {
+    return `<button class="${buttonClass}" data-action="start-graduation">Take the graduation check!</button>`;
+  }
+
+  function graduationReadinessPanel(eligibility) {
+    const confidentReady =
+      eligibility.conversionReady + Math.min(eligibility.neighborReady, eligibility.neighborRequired) + eligibility.sequenceReady;
+    const confidentRequired = eligibility.conversionRequired + eligibility.neighborRequired + eligibility.sequenceRequired;
+    return `
+      <div class="graduation-readiness">
+        <h3>Graduation Check</h3>
+        <p>${
+          eligibility.eligible
+            ? "You're ready for the graduation check. It checks whether you can do the months without help."
+            : "Keep going. The graduation check unlocks when your answers are confident and your practice has held up for a week."
+        }</p>
+        <dl class="data-list readiness-list">
+          <div><dt>Confident month skills</dt><dd>${confidentReady}/${confidentRequired}</dd></div>
+          <div>
+            <dt>Practice over time</dt>
+            <dd>
+              <strong>${eligibility.spacingOk ? "Ready" : "Not ready yet"}</strong>
+              <span>Practise on 3 different days, with at least 7 days from first to latest.</span>
+            </dd>
+          </div>
+          <div><dt>Questions due today</dt><dd>${eligibility.dueRequiredIds.length}</dd></div>
+          <div><dt>Questions to fix</dt><dd>${eligibility.weakIds.length}</dd></div>
+        </dl>
+      </div>
+    `;
+  }
+
   function masteryPanel() {
     const snapshot = Core.computeMasterySnapshot(state, new Date());
     const eligibility = Core.graduationEligibility(state, new Date());
@@ -218,7 +250,7 @@
           <div><strong>${snapshot.conversionFluencyPercent}%</strong><span>conversion fluency</span></div>
           <div><strong>${snapshot.sequenceFluencyPercent}%</strong><span>sequence fluency</span></div>
         </div>
-        <p class="compact">Graduation readiness: ${eligibility.conversionReady}/24 conversions, ${eligibility.neighborReady}/18 neighbor target, ${eligibility.sequenceReady}/4 sequences, ${eligibility.practiceDayCount} practice days.</p>
+        ${graduationReadinessPanel(eligibility)}
       </section>
     `;
   }
@@ -325,7 +357,7 @@
     const graduatedAt = state.goal.graduatedAt ? `<p class="success-line">Goal achieved on ${formatDate(state.goal.graduatedAt)}.</p>` : "";
     const primaryAction =
       graduationTestMode
-        ? '<button class="primary-button" data-action="start-graduation">Take graduation check</button>'
+        ? graduationButton("primary-button")
         : achieved && snapshot.dueCards === 0
         ? '<button class="primary-button" data-action="settings">Review progress</button>'
         : `<button class="primary-button" data-action="start-session">${achieved ? "Start maintenance" : "Start practice"}</button>`;
@@ -349,7 +381,7 @@
             ${primaryAction}
             ${
               eligibility.eligible && !graduationTestMode
-                ? '<button class="secondary-button" data-action="start-graduation">Take graduation check</button>'
+                ? graduationButton()
                 : ""
             }
           </div>
@@ -711,7 +743,7 @@
           <button class="primary-button" data-action="practice-again">Practice again</button>
           ${
             eligibility.eligible
-              ? '<button class="secondary-button" data-action="start-graduation">Take graduation check</button>'
+              ? graduationButton()
               : ""
           }
           <button class="ghost-button" data-action="settings">Review progress</button>

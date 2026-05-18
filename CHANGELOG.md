@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 ### Changed
+- Add learner-facing graduation readiness copy (#14)
 - Test earliest graduation button timing (#13)
 - Enable Enter in graduation check (#11)
 - Shuffle graduation check prompts (#12)

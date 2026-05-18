@@ -63,6 +63,18 @@ test("graduation test mode uses isolated storage and the real exam route", () =>
   assert.match(app, /Core\.shuffleGraduationPrompts\(\)/);
 });
 
+test("graduation readiness copy is learner-facing", () => {
+  const app = read("app.js");
+  assert.match(app, /Graduation Check/);
+  assert.match(app, /answers are confident and your practice has held up for a week/);
+  assert.match(app, /Confident month skills/);
+  assert.match(app, /Practice over time/);
+  assert.match(app, /Practise on 3 different days, with at least 7 days from first to latest\./);
+  assert.match(app, /Take the graduation check!/);
+  assert.doesNotMatch(app, /Graduation readiness:/);
+  assert.doesNotMatch(app, /neighbor target/);
+});
+
 test("queue exhaustion and timer completion share the session summary", () => {
   const app = read("app.js");
   assert.match(app, /finishSession\(\);\s*return;/);

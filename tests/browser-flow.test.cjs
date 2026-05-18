@@ -469,7 +469,7 @@ test("graduation test mode seeds an isolated eligible profile", (t) => {
       (async () => {
         await wait();
         assert(appText().includes("Graduation test mode"), "test mode heading did not render");
-        assert(document.querySelector('[data-action="start-graduation"]').textContent.trim() === "Take graduation check", "test mode did not expose graduation check");
+        assert(document.querySelector('[data-action="start-graduation"]').textContent.trim() === "Take the graduation check!", "test mode did not expose graduation check");
         assert(localStorage.getItem(MonthsLearnerCore.STORAGE_KEY) === "real-progress-marker", "test mode touched real progress storage");
         const testState = JSON.parse(localStorage.getItem(MonthsLearnerCore.STORAGE_KEY + ".graduationTest"));
         assert(testState.goal.status === "eligible_for_check", "test profile was not graduation eligible");
