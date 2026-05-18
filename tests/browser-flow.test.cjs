@@ -727,6 +727,12 @@ test("queue exhaustion lands on the same learner-facing summary page", (t) => {
         assert(document.querySelector(".summary-band"), "summary metrics were not included");
         assert(document.querySelector(".progress-trend-panel"), "progress-over-time panel was not included");
         assert(document.querySelector(".trend circle"), "progress trend did not render a visible point");
+        const practisedLine = document.querySelector("polyline.trend-practised").getAttribute("points");
+        const confidentLine = document.querySelector("polyline.trend-confident").getAttribute("points");
+        assert(practisedLine.startsWith("0,92 "), "practised line did not start from the synthetic zero baseline");
+        assert(confidentLine.startsWith("0,92 "), "confident line did not start from the synthetic zero baseline");
+        assert(practisedLine.split(" ").length === 2, "first practice graph should show baseline plus day 1");
+        assert(!practisedLine.endsWith("100,92"), "first practice graph did not rise from zero");
         assert(!appText().includes("No due review is waiting"), "old no-due copy is still visible");
         const stored = JSON.parse(localStorage.getItem(MonthsLearnerCore.STORAGE_KEY));
         assert(stored.sessions.length === 1, "completed session was not saved");

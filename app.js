@@ -260,8 +260,15 @@
     if (recent.length === 0) {
       return '<p class="compact">No mastery trend yet.</p>';
     }
-    const pointsFor = (field) => recent.map((session, index) => {
-      const x = recent.length === 1 ? 50 : Math.round((index / (recent.length - 1)) * 100);
+    const baseline = {
+      id: `baseline:${recent[0].localDate}`,
+      localDate: previousLocalDateKey(recent[0].localDate),
+      practicedPercent: 0,
+      masteryPercent: 0,
+    };
+    const plottedSessions = [baseline, ...recent];
+    const pointsFor = (field) => plottedSessions.map((session, index) => {
+      const x = Math.round((index / (plottedSessions.length - 1)) * 100);
       const y = Math.round(92 - session[field] * 0.84);
       return { x, y };
     });
@@ -283,6 +290,13 @@
         </div>
       </div>
     `;
+  }
+
+  function previousLocalDateKey(localDate) {
+    const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate);
+    if (!parts) throw new Error(`Invalid local date: ${localDate}`);
+    const date = new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]) - 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
   }
 
   function progressTrendPanel() {
