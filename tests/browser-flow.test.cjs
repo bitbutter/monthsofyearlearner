@@ -328,3 +328,104 @@ test("long mobile correction keeps Continue visible", (t) => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test("feedback lozenge text is vertically balanced", (t) => {
+  const browser = findChrome();
+  if (!browser) {
+    t.skip("Chrome or Edge is not installed in a known location");
+    return;
+  }
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "months-learner-lozenge-layout-"));
+  const userDataDir = path.join(tempDir, "profile");
+  const harnessPath = path.join(tempDir, "harness.html");
+  const styleUrl = pathToFileURL(path.join(root, "styles.css")).href;
+
+  fs.writeFileSync(
+    harnessPath,
+    `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="${styleUrl}" />
+  </head>
+  <body>
+    <section class="prompt-surface">
+      <span id="incorrect-label" class="feedback-label incorrect-label">Incorrect</span>
+      <div class="correct-toast"><span id="correct-label">Correct!</span></div>
+    </section>
+    <script>
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const measure = (selector) => {
+        const label = document.querySelector(selector);
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        const labelRect = label.getBoundingClientRect();
+        const textRect = range.getBoundingClientRect();
+        const top = textRect.top - labelRect.top;
+        const bottom = labelRect.bottom - textRect.bottom;
+        const minClearance = window.innerWidth < 640 ? 5 : 8;
+        assert(top >= minClearance, selector + " top clearance was " + top);
+        assert(bottom >= minClearance, selector + " bottom clearance was " + bottom);
+        assert(Math.abs(top - bottom) <= 8, selector + " vertical clearance was unbalanced: top " + top + ", bottom " + bottom);
+      };
+      try {
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const toastAnimation = getComputedStyle(document.querySelector(".correct-toast")).animationName;
+        const correctAnimation = getComputedStyle(document.querySelector("#correct-label")).animationName;
+        const ringAnimation = getComputedStyle(document.querySelector(".correct-toast"), "::before").animationName;
+        const ringDisplay = getComputedStyle(document.querySelector(".correct-toast"), "::before").display;
+        if (reducedMotion) {
+          assert(toastAnimation === "none", "Correct toast wrapper motion was not reduced");
+          assert(correctAnimation === "none", "Correct lozenge motion was not reduced");
+          assert(ringAnimation === "none", "Correct ring motion was not reduced");
+          assert(ringDisplay === "none", "Correct ring still displayed under reduced motion");
+        } else {
+          assert(toastAnimation.includes("toast-fade"), "Correct toast wrapper animation was missing");
+          assert(correctAnimation.includes("correct-label-pop"), "Correct lozenge pop animation was missing");
+          assert(ringAnimation.includes("correct-ring-pop"), "Correct lozenge ring animation was missing");
+          assert(ringDisplay !== "none", "Correct lozenge ring was missing");
+        }
+        measure("#incorrect-label");
+        measure("#correct-label");
+        document.body.setAttribute("data-test-status", "PASS");
+      } catch (error) {
+        document.body.setAttribute("data-test-status", "FAIL " + error.message);
+      }
+    </script>
+  </body>
+</html>`,
+    "utf8",
+  );
+
+  try {
+    const runs = [
+      { windowSize: "1280,720", extraArgs: [] },
+      { windowSize: "375,667", extraArgs: [] },
+      { windowSize: "1280,720", extraArgs: ["--force-prefers-reduced-motion"] },
+    ];
+    for (const run of runs) {
+      const output = execFileSync(
+        browser,
+        [
+          "--headless=new",
+          "--disable-gpu",
+          "--no-first-run",
+          `--window-size=${run.windowSize}`,
+          "--force-device-scale-factor=1",
+          ...run.extraArgs,
+          `--user-data-dir=${userDataDir}`,
+          "--virtual-time-budget=1000",
+          "--dump-dom",
+          pathToFileURL(harnessPath).href,
+        ],
+        { encoding: "utf8", timeout: 30000 },
+      );
+      assert.match(output, /data-test-status="PASS"/);
+    }
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
