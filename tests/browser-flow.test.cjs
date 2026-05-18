@@ -93,9 +93,27 @@ test("browser flow persists an in-progress answer event before session completio
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
         assert(document.querySelector('[data-confidence="Sure"]').classList.contains("keyboard-flash"), "enter did not flash the Sure button");
-        await new Promise((resolve) => setTimeout(resolve, 180));
+        for (let attempts = 0; attempts < 20 && !document.querySelector(".correct-toast"); attempts += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
         assert(appText().includes("Correct!"), "correct toast did not render");
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        await new Promise((resolve) => setTimeout(resolve, 140));
+        const liveReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const liveRingStyle = getComputedStyle(document.querySelector(".correct-toast"), "::before");
+        const liveLabelStyle = getComputedStyle(document.querySelector(".correct-toast span"));
+        assert(Number(liveRingStyle.opacity) >= 0.2, "live correct ring was not visible");
+        if (liveReducedMotion) {
+          assert(liveRingStyle.animationName.includes("correct-ring-reduced"), "live correct reduced-motion ring was missing");
+          assert(liveRingStyle.transform !== "none", "live correct reduced-motion ring was not positioned");
+          assert(liveLabelStyle.animationName === "none", "live correct label animation was not reduced");
+          assert(!liveLabelStyle.animationName.includes("correct-label-pop"), "live correct label bounce was not reduced");
+        } else {
+          assert(liveRingStyle.animationName.includes("correct-ring-pop"), "live correct ring animation was missing");
+          assert(liveRingStyle.transform !== "none", "live correct ring was not expanding");
+          assert(liveLabelStyle.animationName.includes("correct-label-pop"), "live correct label pop animation was missing");
+          assert(liveLabelStyle.animationName.includes("correct-label-halo"), "live correct label halo animation was missing");
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         assert(!appText().includes("Expected"), "correct answer should not show blocking feedback");
         const nextPromptText = document.querySelector(".prompt-text").textContent;
         assert(nextPromptText !== promptText, "correct answer did not auto-advance");
@@ -387,13 +405,16 @@ test("feedback lozenge text is vertically balanced", (t) => {
         const ringAnimation = ringStyle.animationName;
         const ringDisplay = ringStyle.display;
         if (reducedMotion) {
-          assert(toastAnimation === "none", "Correct toast wrapper motion was not reduced");
-          assert(correctAnimation === "none", "Correct lozenge motion was not reduced");
-          assert(ringAnimation === "none", "Correct ring motion was not reduced");
-          assert(ringDisplay === "none", "Correct ring still displayed under reduced motion");
+          assert(toastAnimation.includes("toast-fade-reduced"), "Correct toast wrapper did not use reduced fade");
+          assert(correctAnimation === "none", "Correct lozenge animation was not reduced");
+          assert(!correctAnimation.includes("correct-label-pop"), "Correct lozenge bounce was not reduced");
+          assert(ringAnimation.includes("correct-ring-reduced"), "Correct reduced-motion ring was missing");
+          assert(ringDisplay !== "none", "Correct ring was hidden under reduced motion");
+          assert(Number(ringStyle.opacity) >= 0.2, "Correct reduced-motion ring was not visible");
         } else {
           assert(toastAnimation.includes("toast-fade"), "Correct toast wrapper animation was missing");
           assert(correctAnimation.includes("correct-label-pop"), "Correct lozenge pop animation was missing");
+          assert(correctAnimation.includes("correct-label-halo"), "Correct lozenge halo animation was missing");
           assert(ringAnimation.includes("correct-ring-pop"), "Correct lozenge ring animation was missing");
           assert(ringDisplay !== "none", "Correct lozenge ring was missing");
           assert(parseFloat(ringStyle.width) > correctLabel.getBoundingClientRect().width * 1.25, "Correct ring was not wider than the lozenge");

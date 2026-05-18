@@ -20,6 +20,7 @@
   let sureFlashHandle = null;
   let enterSubmitPending = false;
   let graduation = null;
+  const CORRECT_FEEDBACK_MS = 900;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -438,7 +439,7 @@
         autoAdvanceHandle = null;
         toast = null;
         loadNextCard();
-      }, 650);
+      }, CORRECT_FEEDBACK_MS);
       return;
     }
 
